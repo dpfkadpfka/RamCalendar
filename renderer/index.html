@@ -174,6 +174,7 @@
         <button type="button" data-page="skin"><span class="st-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="9.5" r="1.7"/><path d="M20.5 15.5l-5-5-9 9"/></svg></span>스킨</button>
         <button type="button" data-page="font"><span class="st-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-14 5 14M5.8 14.5h6.4"/><path d="M15.5 12.5c.6-.9 1.6-1.4 2.7-1.4 1.6 0 2.8 1 2.8 2.7V19m0-3.2c-.6 1.9-1.9 3.4-3.8 3.4-1.4 0-2.4-.8-2.4-2.1 0-1.6 1.6-2.4 6.2-2.4"/></svg></span>글꼴</button>
         <button type="button" data-page="alarm"><span class="st-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></span>알림</button>
+        <button type="button" data-page="ai"><span class="st-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M12.5 8.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg></span>AI 연결</button>
         <button type="button" data-page="window"><span class="st-ic"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9h17"/><circle cx="6.5" cy="6.8" r=".5" fill="currentColor"/><circle cx="8.6" cy="6.8" r=".5" fill="currentColor"/></svg></span>창·동작</button>
       </nav>
       <div class="st-pages">
@@ -233,6 +234,18 @@
           <h3 class="st-sub">휴대폰은 조용히</h3>
           <p class="note">구글 캘린더의 <b>기본 알림</b>이 켜져 있으면 새 일정마다 휴대폰이 울려요. 아래 버튼을 누르면 내 캘린더들의 기본 알림을 한 번에 꺼요. 이미 만든 일정의 알림은 그대로예요.</p>
           <div class="row"><button type="button" id="stMuteGoogle">구글 기본 알림 끄기</button><span class="muted" id="stMuteMsg"></span></div>
+        </section>
+        <section class="st-page" data-page="ai" hidden>
+          <h3>AI 연결 (일정 도우미)</h3>
+          <p class="note">💬 일정 도우미는 기본으로 <b>날짜 규칙</b>으로 날짜를 찾아요. 문장이 복잡해도 정확하게 찾고 싶으면 무료 <b>Gemini 키</b>를 연결하세요. 처음 한 번만 하면 돼요.</p>
+          <div class="row"><b id="stAiState">연결 안 됨</b></div>
+          <ol class="st-steps">
+            <li><a href="#" id="stAiLink">Google AI Studio 키 만들기 페이지</a>를 열고 구글 계정으로 로그인</li>
+            <li><b>API 키 만들기(Create API key)</b> 누르기 → 만들어진 키 옆 <b>복사</b></li>
+            <li>아래 칸에 붙여넣고 <b>연결</b> 누르기</li>
+          </ol>
+          <div class="row"><input id="stAiKey" type="password" placeholder="AIza…" autocomplete="off" style="flex:1;min-width:0"><button type="button" class="primary" id="stAiSave">연결</button><button type="button" id="stAiDel" hidden>연결 끊기</button></div>
+          <p class="note">키는 이 컴퓨터에만 암호화해 저장하고, 일정 도우미에 붙여넣은 글만 구글 AI로 보내요. 카드를 등록하지 않으면 요금이 나가지 않고, 무료 한도를 넘으면 잠깐 날짜 규칙으로 찾아요. 무료 키로 보낸 글은 구글 서비스 개선에 쓰일 수 있어요.</p>
         </section>
         <section class="st-page" data-page="window" hidden>
           <h3>창·동작</h3>

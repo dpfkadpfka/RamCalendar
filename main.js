@@ -346,7 +346,9 @@ ipcMain.handle('ev:get', wrap(async (calId, id) => api('GET', `/calendars/${enc1
 ipcMain.handle('assist:setKey', wrap(async (key) => {
   key = String(key || '').trim();
   if (key) cfg.aiKey = enc(key); else delete cfg.aiKey;
-  saveCfg(); return { hasAiKey: !!key };
+  saveCfg();
+  [win, settingsWin].forEach(w => { if (w && !w.isDestroyed()) w.webContents.send('app:cfg'); });
+  return { hasAiKey: !!key };
 }));
 ipcMain.handle('assist:ai', wrap(async (text, today) => {
   const key = dec(cfg.aiKey || '');

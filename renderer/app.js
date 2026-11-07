@@ -1066,7 +1066,7 @@
       else if (m.type === 'save') saveSettings(true);
       else if (m.type === 'cancel') cancelSettings();
     });
-    api.on('app:cfg', async () => { const r = await api.getCfg(); if (r.ok) { S.cfg = r.data; themeApply(); lockApply(); } });
+    api.on('app:cfg', async () => { const r = await api.getCfg(); if (r.ok) { S.cfg = Object.assign(S.cfg, r.data); themeApply(); lockApply(); if (typeof asApply === 'function' && !SET_MODE) asApply(); stAiRender(); } });
     // 자정이 지나면 오늘 표시 갱신
     let lastDay = todayStr();
     setInterval(() => { if (todayStr() !== lastDay) { lastDay = todayStr(); applyMini(); if (S.cfg.mini) { S.sel = lastDay; S.ym = lastDay.slice(0, 7); load(); } else render(); } }, 60 * 1000);
@@ -1301,10 +1301,30 @@
     $('asText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); asSend(); } });
   }
 
+
+  // ---------- 설정: AI 연결 ----------
+  function stAiRender() {
+    if (!$('stAiState')) return;
+    const on = !!S.cfg.hasAiKey;
+    $('stAiState').textContent = on ? '✅ Gemini AI 연결됨' : '연결 안 됨 — 날짜 규칙으로 찾는 중';
+    $('stAiSave').textContent = on ? '키 바꾸기' : '연결'; $('stAiDel').hidden = !on;
+  }
+  function stAiBind() {
+    if (!$('stAiSave')) return;
+    $('stAiLink').onclick = (e) => { e.preventDefault(); api.win('open', 'https://aistudio.google.com/apikey'); };
+    $('stAiSave').onclick = async () => {
+      const k = $('stAiKey').value.trim(); if (!k) { $('stAiKey').focus(); return; }
+      const r = await api.assistKey(k); $('stAiKey').value = '';
+      if (r.ok) { S.cfg.hasAiKey = true; stAiRender(); }
+    };
+    $('stAiDel').onclick = async () => { const r = await api.assistKey(''); if (r.ok) { S.cfg.hasAiKey = false; stAiRender(); } };
+    stAiRender();
+  }
+
   async function initSettingsWindow() {
     document.body.classList.add('settings-mode'); document.title = 'Ram Calendar 설정';
     const r = await api.getCfg(); S.cfg = r.ok ? r.data : {};
-    themeApply(); bind();
+    themeApply(); bind(); stAiBind();
     if (S.cfg.loggedIn) { const c = await api.calendars(); if (c.ok) S.cals = c.data; }
     S.draft = {}; renderSettings(); $('settings').show();
   }
