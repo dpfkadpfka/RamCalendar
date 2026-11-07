@@ -149,7 +149,7 @@
     if (g.length && /\p{Extended_Pictographic}/u.test(g[0])) return g[0];
     return g.slice(0, 2).join('');
   }
-  // 칸이 좁으면 ① 작은 글씨 → ② 이모지만 → ③ 그래도 넘치면 +N 순서로 최대한 보이게
+  // 글씨 크기는 모든 칸이 똑같이 — 넘치는 일정은 +N으로 접고, 마우스를 올리면 전부 보여 줌
   function fitChips() {
     document.querySelectorAll('.cell').forEach(c => {
       const box = c.querySelector('.chips'); if (!box) return;
@@ -160,8 +160,6 @@
       if (!chips.length) return;
       const fits = () => box.scrollHeight <= box.clientHeight + 1;
       if (fits()) return;
-      c.classList.add('dense'); if (fits()) return;
-      c.classList.remove('dense'); c.classList.add('tiny'); if (fits()) return;
       const m = el('div', 'more');
       m.addEventListener('click', (e) => { e.stopPropagation(); select(c.dataset.d, false); setPanel('day', true); });
       box.appendChild(m);
