@@ -480,35 +480,72 @@ function trayMenu() {
 
 // ---------- 자동 업데이트 (깃허브 릴리스) ----------
 let updater = null;
+let updateReady = null; // 받아 둔 새 버전
+function askRestart() {
+  const { dialog } = require('electron');
+  dialog.showMessageBox(win && !win.isDestroyed() ? win : null, { type: 'info', title: APP_NAME, message: 'v' + updateReady + ' 업데이트를 받아 두었어요.', detail: '지금 다시 켜면 바로 적용돼요.', buttons: ['지금 다시 켜기', '나중에'], defaultId: 0, cancelId: 1 })
+    .then(r => { if (r.response === 0) { quitting = true; updater.quitAndInstall(false, true); } });
+}
+function updateMsg(text) {
+  const { dialog } = require('electron');
+  dialog.showMessageBox(win && !win.isDestroyed() ? win : null, { type: 'info', title: APP_NAME, message: text, buttons: ['확인'] });
+}
 function checkUpdate(manual) {
-  if (!app.isPackaged) return;
+  if (!app.isPackaged) { if (manual) updateMsg('개발용 실행에서는 업데이트를 확인하지 않아요.'); return; }
   try {
     if (!updater) {
       updater = require('electron-updater').autoUpdater;
       updater.autoDownload = true; updater.autoInstallOnAppQuit = true;
       updater.on('update-downloaded', (info) => {
+        updateReady = info.version;
         if (win) win.webContents.send('app:update', 'v' + info.version + ' 업데이트를 받았어요. 앱을 다시 켜면 적용돼요.');
+        if (updater._manual) askRestart();
       });
-      updater.on('update-not-available', () => { if (updater._manual && win) win.webContents.send('app:update', '최신 버전이에요 (v' + app.getVersion() + ').'); });
-      updater.on('error', (e) => { if (updater._manual && win) win.webContents.send('app:update', '업데이트 확인 실패: ' + (e && e.message || e)); });
+      updater.on('update-available', (info) => { if (updater._manual && win) win.webContents.send('app:update', 'v' + info.version + ' 새 버전을 받는 중이에요…'); });
+      updater.on('update-not-available', () => { if (updater._manual) updateMsg('최신 버전이에요 (v' + app.getVersion() + ').'); });
+      updater.on('error', (e) => { if (updater._manual) updateMsg('업데이트를 확인하지 못했어요. 인터넷 연결을 확인해 주세요.\n(' + (e && e.message || e) + ')'); });
     }
     updater._manual = !!manual;
+    if (manual && updateReady) return askRestart();
     updater.checkForUpdates().catch(() => {});
   } catch (e) { console.error(e); }
+}
+
+// 작업 표시줄 아이콘을 오른쪽 클릭했을 때 나오는 메뉴(점프 목록)
+function setJumpList() {
+  if (process.platform !== 'win32') return;
+  const t = (arg, title, description, icon) => ({ program: process.execPath, arguments: arg, iconPath: process.execPath, iconIndex: 0, title, description });
+  try {
+    app.setUserTasks([
+      t('--check-update', '업데이트 확인', '새 버전이 있는지 확인해요'),
+      t('--open-settings', '설정 열기', 'Ram Calendar 설정을 열어요'),
+      t('--quit', '완전히 종료', '트레이까지 Ram Calendar를 꺼요')
+    ]);
+  } catch (e) { console.error(e); }
+}
+function handleArgs(argv) {
+  if (argv.includes('--check-update')) checkUpdate(true);
+  else if (argv.includes('--open-settings')) openSettingsWindow();
+  else if (argv.includes('--quit')) { quitting = true; app.quit(); }
+  else if (win) { win.show(); win.focus(); }
 }
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
+  app.on('second-instance', (_e, argv) => handleArgs(argv || []));
   app.whenReady().then(() => {
     app.setAppUserModelId('kr.yeram.calendar');
+    if (process.argv.includes('--quit')) { app.quit(); return; }
     loadCfg();
     // 설정의 글꼴 목록에 내 PC에 설치된 글꼴을 보여주기 위해 허용
     session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'local-fonts');
     session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'local-fonts'));
     createWindow();
     startAlarms();
+    setJumpList();
+    // 앱이 꺼져 있을 때 점프 목록으로 켠 경우
+    setTimeout(() => { if (process.argv.includes('--check-update')) checkUpdate(true); else if (process.argv.includes('--open-settings')) openSettingsWindow(); }, 1500);
     try {
       tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: 16, height: 16 }));
       tray.setToolTip(APP_NAME);
