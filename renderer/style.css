@@ -583,3 +583,6 @@ body.settings-mode #stClose{display:none}
 .as-tag{white-space:nowrap}
 .as-crow input[type=date]{flex:1 1 auto}
 .as-crow input[type=time]{flex:0 0 118px}
+.as-aitip{display:block;margin-top:7px;border:0;background:none;padding:0;color:var(--accent);font-size:11.8px;text-align:left}
+.as-aitip:hover{text-decoration:underline}
+.as-key ol li{margin:2px 0}

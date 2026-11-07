@@ -98,16 +98,19 @@
     /^(안녕하세요|안녕하십니까)[^.!?]*[.!?]?\s*/g, /^\s*선생님(들)?\s*[,.]?\s*/g,
     /(제출\s*)?(기한|마감(일|일시)?|일시|일자|날짜|기간|시간|때)\s*[:：]?/g,
     /\(\s*[월화수목금토일]\s*\)/g,
-    /(까지|부터|에서|에|中)(?=\s|$|[,.)])/g,
+    /(까지|부터)(입니다|이에요|예요|이며|이고)?/g,
+    /(에서|에|中)(?=\s|$|[,.)])/g,
     /(해\s*)?(주시기\s*)?(바랍니다|부탁드립니다|부탁합니다|부탁드려요|부탁해요|드립니다|드려요|합니다|입니다|하세요|해\s*주세요|주세요|예정입니다|예정이에요|있습니다|있어요|됩니다|돼요|하겠습니다|요망)[.!~]*/g,
     /^(또한|그리고|아울러|및|그리고요)\s+/g,
     /(안내|알림|공지)(\s*(드립니다|합니다))?$/g
   ];
   const TAIL = /\s*(이|가)?\s*(진행|실시|개최|운영)(될|할|됩)?\s*(예정)?\s*$/;
   function tidy(s) {
-    let t = s;
-    CLEAN.forEach(r => { t = t.replace(r, ' '); }); t = t.trim().replace(TAIL, '');
-    t = t.replace(/^\s*\d{1,2}[.)]\s+/, '').replace(/^[\s\-•·*○●▶▷►※◎□■☞>→~)\]]+/, '').replace(/^(또한|그리고|아울러)\s+/, '').replace(/(이|가|은|는|을|를|에|로|으로|와|과)\s*$/, '').replace(/[\s~\-–:：,()\[\]]+$/, '').replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+    let t = s.replace(/[★☆□■◆◇○●◎※▶▷►☞→✔✓]+/g, ' ');
+    CLEAN.forEach(r => { t = t.replace(r, ' '); });
+    t = t.replace(/^\s*\d{1,2}[.)]\s+/, '').replace(/^[\s\-•·*>~)\]]+/, '').replace(/^(또한|그리고|아울러)\s+/, '');
+    t = t.replace(/\s*~\s*/g, ' ').replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+    for (let k = 0; k < 3; k++) t = t.replace(TAIL, '').replace(/[\s\-–:：,.!]+$/, '').replace(/(이|가|은|는|을|를|에|로|으로|와|과|에서)$/, '').trim();
     return t;
   }
   function subjectOf(lines) {
@@ -156,12 +159,16 @@
       rest = rest.replace(/(장소|위치)\s*[:：].*$/, '');
       let title = tidy(rest);
       const generic = /^(제출|회신|신청|마감|입력|보고|등록|접수|회의|연수|일정|행사|협의회)?$/;
-      if (title.length < 4 || generic.test(title)) title = subject ? subject + (title && !subject.includes(title) ? ' ' + title : '') : (title || '일정');
+      if (title.length < 4 || generic.test(title)) title = subject ? subject + (title && !subject.includes(title) ? ' ' + title : '') : (title || (kind === '일정' ? '일정' : kind));
       else if (subject && title.length < 8 && !title.includes(subject.slice(0, 4))) title = subject + ' ' + title;
-      const ob = title.match(/^(.{2,30}?)\s*(을|를)\s+.*?(제출|회신|신청|입력|응답|등록|보고|작성)/);
+      const ob = title.match(/^(.{2,30}?)\s*(을|를)\s+.*?(제출|회신|신청|입력|응답|등록|보고|작성|보내|올려|업로드|탑재)/);
+      if (ob && /보내|올려|업로드|탑재/.test(ob[3])) ob[3] = '제출';
       if (ob) title = ob[1] + ' ' + ob[3];
+      let ploc = '';
+      title = title.replace(/\s*\(([^()]{2,15})$/, (m, x) => { ploc = x; return ''; }).replace(/\s*\(([^()]{2,15})\)$/, (m, x) => { ploc = x; return ''; });
+      if (!title) title = kind === '일정' ? (subject || '일정') : kind;
       title = title.slice(0, 40).trim();
-      const loc = (seg.match(/(장소|위치)\s*[:：]\s*(.+)$/) || [])[2] || (kind !== '제출' ? locLine : '') || '';
+      const loc = (seg.match(/(장소|위치)\s*[:：]\s*(.+)$/) || [])[2] || ploc || (kind !== '제출' ? locLine : '') || '';
       items.push({ kind, title, date, endDate, time, endTime, location: loc.trim(), src: seg, past: date < today, checked: date >= today });
     });
     // 같은 날 같은 제목은 하나로

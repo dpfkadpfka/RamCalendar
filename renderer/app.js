@@ -1180,7 +1180,7 @@
     }
     if (!items) items = window.RamAssist.parse(text, new Date()).items;
     wait.remove(); AS.busy = false;
-    if (!items.length) return asBot('날짜를 찾지 못했어요. <b>11/14(금) 16시까지</b>처럼 날짜가 들어간 글을 붙여넣어 주세요.' + (S.cfg.hasAiKey ? '' : '<br><span class="as-ex">문장이 복잡하면 위쪽 <b>AI 연결</b>을 켜 보세요.</span>'));
+    if (!items.length) return asBot('날짜를 찾지 못했어요. <b>11/14(금) 16시까지</b>처럼 날짜가 들어간 글을 붙여넣어 주세요.' + (S.cfg.hasAiKey ? '' : '<br><span class="as-ex">문장이 복잡하면 위쪽 <b>AI 연결</b>을 눌러 Gemini AI를 연결해 보세요.</span>'));
     await asMarkDup(items);
     asCards(items, how);
   }
@@ -1230,7 +1230,13 @@
     const upd = () => { const n = [...list.children].filter(c => c._get().on).length; go.textContent = n ? n + '개 등록' : '등록'; go.disabled = !n; };
     list.addEventListener('change', upd); upd();
     go.onclick = () => asRegister([...list.children].map(c => c._get()).filter(x => x.on), cal.value, m, go);
-    foot.append(cal, go); m.appendChild(foot); asScroll();
+    foot.append(cal, go); m.appendChild(foot);
+    if (!S.cfg.hasAiKey) {
+      const tip = el('button', 'as-aitip', '빠진 게 있나요? Gemini AI를 연결하면 더 정확해요 →'); tip.type = 'button';
+      tip.onclick = () => { AS.keyOpen = true; asApply(); $('asKeyInput').focus(); };
+      m.appendChild(tip);
+    }
+    asScroll();
   }
 
   function asBody(x) {

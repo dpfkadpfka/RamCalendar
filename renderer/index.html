@@ -55,11 +55,15 @@
         <button type="button" class="ib as-x" id="asClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
       </div>
       <div class="as-key" id="asKey" hidden>
-        <p><b>AI로 더 똑똑하게 찾기 (선택)</b><br>무료 Gemini 키를 넣으면 복잡한 문장도 알아들어요. 키가 없어도 날짜 규칙으로 찾아요.</p>
-        <ol><li><a href="#" id="asKeyLink">aistudio.google.com/apikey</a> 에서 <b>API 키 만들기</b></li><li>만든 키를 복사해 아래에 붙여넣기</li></ol>
+        <p><b>Gemini AI 연결하기 (선택)</b><br>기본은 날짜 규칙으로 찾아요. 문장이 복잡해도 정확하게 찾고 싶으면 무료 Gemini 키를 연결하세요. 처음 한 번만 하면 돼요.</p>
+        <ol>
+          <li><a href="#" id="asKeyLink">Google AI Studio 키 만들기 페이지</a>를 열고 구글 계정으로 로그인</li>
+          <li><b>API 키 만들기(Create API key)</b> 누르기 → 만들어진 키 옆 <b>복사</b></li>
+          <li>아래 칸에 붙여넣고 <b>저장</b> → 위쪽이 <b>AI 켜짐</b>으로 바뀌면 끝</li>
+        </ol>
         <div class="as-keyrow"><input id="asKeyInput" type="password" placeholder="AIza…" autocomplete="off"><button type="button" class="primary" id="asKeySave">저장</button></div>
         <button type="button" class="as-link" id="asKeyDel" hidden>AI 연결 끊기</button>
-        <small>붙여넣은 글만 구글 AI로 보내고, 키는 이 컴퓨터에만 암호화해 저장해요.</small>
+        <small>키는 이 컴퓨터에만 암호화해 저장하고, 붙여넣은 글만 구글 AI로 보내요. 무료 키로 보낸 글은 구글 서비스 개선에 쓰일 수 있어요.</small>
       </div>
       <div class="as-log" id="asLog" aria-live="polite"></div>
       <form class="as-in" id="asForm">
