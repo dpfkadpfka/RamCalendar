@@ -592,3 +592,10 @@ body.settings-mode #stClose{display:none}
 .as-kmsg{font-size:11.8px;color:var(--danger);margin-top:5px;min-height:0}
 .as-kmsg:empty{display:none}
 .as-key ol .muted,.st-steps .muted{font-size:11.5px}
+.as-tag.mv{background:#fff1e6;color:#c2410c}
+.as-move{margin-top:3px;padding:7px 8px;border-radius:8px;background:color-mix(in srgb,#f97316 9%,var(--surface));border:1px solid color-mix(in srgb,#f97316 28%,transparent);font-size:12px;line-height:1.5}
+.as-mq b{font-weight:700}
+.as-seg{display:flex;gap:4px;margin-top:6px}
+.as-seg button{flex:1;font-size:11.5px;padding:4px 2px;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.as-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.as-seg button.on,:root[data-style] .as-seg button.on{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}

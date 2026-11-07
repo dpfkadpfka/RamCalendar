@@ -1185,16 +1185,26 @@
     asCards(items, how);
   }
 
-  // 이미 캘린더에 있는 일정은 체크를 빼고 표시
+  // 이미 있는 일정 찾기: 같은 날·같은 시각이면 "이미 있음", 날짜·시각만 다르면 "옮길까요?"
+  const asKey = (t) => String(t).replace(/^[^\p{L}\p{N}]*(\[[^\]]*\])?\s*/u, '').replace(/\(\d{1,2}:\d{2}\)/g, '').replace(/[^\p{L}\p{N}]/gu, '');
+  function asSimilar(a, b) {
+    const x = asKey(a), y = asKey(b); if (!x || !y) return false;
+    const [s, l] = x.length <= y.length ? [x, y] : [y, x];
+    if (s.length >= 4 && l.includes(s)) return true;
+    const bg = (t) => { const m = new Map(); for (let i = 0; i < t.length - 1; i++) { const g = t.slice(i, i + 2); m.set(g, (m.get(g) || 0) + 1); } return m; };
+    const A = bg(x), B = bg(y); let hit = 0; A.forEach((n, g) => { hit += Math.min(n, B.get(g) || 0); });
+    return (2 * hit) / Math.max(1, (x.length - 1) + (y.length - 1)) >= 0.6;
+  }
   async function asMarkDup(items) {
-    const ds = items.map(i => i.date).sort(); const a = ds[0], b = addDays(ds[ds.length - 1], 1);
-    const r = await api.events(visibleCalIds(), parse(a).toISOString(), parse(b).toISOString());
+    const ds = items.map(i => i.date).sort();
+    const r = await api.events(visibleCalIds(), parse(addDays(ds[0], -45)).toISOString(), parse(addDays(ds[ds.length - 1], 120)).toISOString());
     if (!r.ok) return;
-    const key = (t) => String(t).replace(/^[^\p{L}\p{N}]*(\[[^\]]*\])?\s*/u, '').replace(/\s|\(\d{1,2}:\d{2}\)/g, '');
+    const evs = r.data.items.map(norm).filter(e => !e.holiday && !e.recurring);
     items.forEach(it => {
-      const k = key(it.title);
-      const hit = r.data.items.find(e => { const d = (e.start.date || (e.start.dateTime || '').slice(0, 10)); const ek = key(e.summary || ''); return d === it.date && k && ek && (ek.includes(k) || k.includes(ek)); });
-      if (hit) { it.dup = true; it.checked = false; }
+      const cands = evs.filter(e => asSimilar(it.title, e.title));
+      if (cands.some(e => e.sd === it.date && (e.allDay || !it.time || e.st === it.time))) { it.dup = true; it.checked = false; return; }
+      const mv = cands.filter(e => e.writable).sort((x, y) => Math.abs(parse(x.sd) - parse(it.date)) - Math.abs(parse(y.sd) - parse(it.date)))[0];
+      if (mv) it.move = mv;
     });
   }
 
@@ -1218,7 +1228,23 @@
       if (it.endDate) row.appendChild(el('span', 'as-range', '~ ' + shortDate(it.endDate)));
       c.append(top, title, row);
       if (it.location) c.appendChild(el('div', 'as-loc', '📍 ' + it.location));
-      c._get = () => ({ on: ck.checked, rule: ruleByLabel(kind.value), title: title.value.trim(), date: d.value, time: t.value, endDate: it.endDate, endTime: it.endTime, location: it.location, src: it.src });
+      let mode = 'new';
+      if (it.move) {
+        mode = 'move'; top.appendChild(el('span', 'as-tag mv', '기존 일정 있음'));
+        const mv = it.move, box = el('div', 'as-move'), q = el('div', 'as-mq');
+        const when = (dd, tt) => shortDate(dd) + (tt ? ' ' + tt : '');
+        const say = () => { q.innerHTML = ''; q.append('기존 '); q.appendChild(el('b', null, mv.title)); q.append(` (${when(mv.sd, mv.allDay ? '' : mv.st)})이 있어요. ${when(d.value || it.date, t.value)}(으)로 옮길까요?`); };
+        const seg = el('div', 'as-seg');
+        [['move', '기존 일정 옮기기'], ['new', '새로 추가'], ['skip', '건너뛰기']].forEach(([v, l]) => {
+          const bt = el('button', null, l); bt.type = 'button'; bt.dataset.v = v;
+          bt.onclick = () => { mode = v; ck.checked = v !== 'skip'; c.classList.toggle('off', !ck.checked); [...seg.children].forEach(x => x.classList.toggle('on', x.dataset.v === mode)); list.dispatchEvent(new Event('change')); };
+          seg.appendChild(bt);
+        });
+        [...seg.children].forEach(x => x.classList.toggle('on', x.dataset.v === mode));
+        d.addEventListener('change', say); t.addEventListener('change', say); say();
+        box.append(q, seg); c.appendChild(box);
+      }
+      c._get = () => ({ on: ck.checked, mode: it.move && mode === 'move' ? 'move' : 'new', move: it.move, rule: ruleByLabel(kind.value), title: title.value.trim(), date: d.value, time: t.value, endDate: it.endDate, endTime: it.endTime, location: it.location, src: it.src });
       ck.onchange = () => c.classList.toggle('off', !ck.checked); c.classList.toggle('off', !ck.checked);
       list.appendChild(c);
     });
@@ -1227,7 +1253,7 @@
     S.cals.filter(c => c.writable).forEach(c => { const o = el('option', null, c.name + (c.primary ? ' (기본)' : '')); o.value = c.id; cal.appendChild(o); });
     const pri = S.cals.find(c => c.primary && c.writable); if (pri) cal.value = pri.id;
     const go = el('button', 'primary', '등록'); go.type = 'button';
-    const upd = () => { const n = [...list.children].filter(c => c._get().on).length; go.textContent = n ? n + '개 등록' : '등록'; go.disabled = !n; };
+    const upd = () => { const g = [...list.children].map(c => c._get()).filter(x => x.on); const mv = g.filter(x => x.mode === 'move').length; go.textContent = !g.length ? '등록' : mv ? g.length + '개 반영' : g.length + '개 등록'; go.disabled = !g.length; };
     list.addEventListener('change', upd); upd();
     go.onclick = () => asRegister([...list.children].map(c => c._get()).filter(x => x.on), cal.value, m, go);
     foot.append(cal, go); m.appendChild(foot);
@@ -1265,7 +1291,16 @@
     const ok = [], bad = [];
     for (const x of xs) {
       if (!x.date) { bad.push(x.title + ' (날짜 없음)'); continue; }
-      const r = await api.create(calId, asBody(x));
+      let r;
+      if (x.mode === 'move' && x.move) {
+        const nb = asBody(x), mv = x.move, patch = {};
+        patch.start = nb.start.date ? { date: nb.start.date, dateTime: null, timeZone: null } : { dateTime: nb.start.dateTime, timeZone: nb.start.timeZone, date: null };
+        patch.end = nb.end.date ? { date: nb.end.date, dateTime: null, timeZone: null } : { dateTime: nb.end.dateTime, timeZone: nb.end.timeZone, date: null };
+        // 제목 끝의 마감 시각 (16:00)도 새 시각으로
+        if (/\(\d{1,2}:\d{2}\)\s*$/.test(mv.title)) patch.summary = x.time ? mv.title.replace(/\(\d{1,2}:\d{2}\)\s*$/, '(' + x.time + ')') : mv.title.replace(/\s*\(\d{1,2}:\d{2}\)\s*$/, '');
+        r = await api.patch(mv.calId, mv.id, patch);
+        x.moved = true; x.from = mv.sd + (mv.allDay ? '' : ' ' + mv.st); x.shown = patch.summary || mv.title;
+      } else r = await api.create(calId, asBody(x));
       if (r.ok) ok.push(x); else bad.push(x.title + ' — ' + r.message);
     }
     msg.querySelectorAll('input,select,button').forEach(e => e.disabled = true);
@@ -1273,10 +1308,11 @@
     if (!ok.length) { msg.querySelectorAll('input,select,button').forEach(e => e.disabled = false); }
     if (ok.length) msg.classList.add('done');
     if (ok.length) {
-      const b = asBot(`<b>${ok.length}개</b>를 등록했어요. 누르면 그 날짜로 가요.`);
+      const nm = ok.filter(x => x.moved).length, nn = ok.length - nm;
+      const b = asBot((nn ? `<b>${nn}개</b>를 새로 넣었어요. ` : '') + (nm ? `<b>${nm}개</b>는 기존 일정을 옮겼어요. ` : '') + '누르면 그 날짜로 가요.');
       const ul = el('div', 'as-done');
       ok.sort((a, b) => a.date < b.date ? -1 : 1).forEach(x => {
-        const a = el('button', 'as-go', shortDate(x.date) + '  ' + x.rule.prefix + x.title); a.type = 'button';
+        const a = el('button', 'as-go', x.moved ? shortDate(x.from.slice(0, 10)) + ' → ' + shortDate(x.date) + '  ' + x.shown : shortDate(x.date) + '  ' + x.rule.prefix + x.title); a.type = 'button';
         a.onclick = () => { S.sel = x.date; if (x.date.slice(0, 7) !== S.ym) { S.ym = x.date.slice(0, 7); S.events = []; } render(); load(); };
         ul.appendChild(a);
       });

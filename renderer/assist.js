@@ -95,6 +95,9 @@
   }
 
   const CLEAN = [
+    /^(변경|연기|조정)된\s*/g,
+    /\s*(기한|일정|날짜|일시|장소|시간)?\s*(이|가|을|를)?\s*(변경|연기|조정|앞당겨|당겨)(되었습니다|됐습니다|되었어요|됐어요|됩니다|돼요|되어|됨|된|했습니다|합니다)?[.!]?/g,
+    /(은|는|도)?\s*그대로(\s*(진행|운영|실시))?/g,
     /^(안녕하세요|안녕하십니까)[^.!?]*[.!?]?\s*/g, /^\s*선생님(들)?\s*[,.]?\s*/g,
     /(제출\s*)?(기한|마감(일|일시)?|일시|일자|날짜|기간|시간|때)\s*[:：]?/g,
     /\(\s*[월화수목금토일]\s*\)/g,
@@ -110,13 +113,14 @@
     CLEAN.forEach(r => { t = t.replace(r, ' '); });
     t = t.replace(/^\s*\d{1,2}[.)]\s+/, '').replace(/^[\s\-•·*>~)\]]+/, '').replace(/^(또한|그리고|아울러)\s+/, '');
     t = t.replace(/\s*~\s*/g, ' ').replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
-    for (let k = 0; k < 3; k++) t = t.replace(TAIL, '').replace(/[\s\-–:：,.!]+$/, '').replace(/(이|가|은|는|을|를|에|로|으로|와|과|에서)$/, '').trim();
+    for (let k = 0; k < 3; k++) t = t.replace(TAIL, '').replace(/\s+일정$/, '').replace(/[\s\-–:：,.!]+$/, '').replace(/(이|가|은|는|을|를|에|로|으로|와|과|에서)$/, '').trim();
     return t;
   }
   function subjectOf(lines) {
     for (const l of lines) {
       let s = l.replace(/^(re|fw|fwd)\s*[:：]\s*/i, '').replace(/^\s*(\[[^\]]{1,12}\]\s*)+/, '').trim();
       s = s.replace(/\s*(안내|알림|공지|협조\s*요청|요청|협조)(\s*(드립니다|합니다))?\s*$/, '').trim();
+      s = tidy(s) || s;
       if (s && !/^(안녕하세요|선생님|수고|감사)/.test(s) && /[가-힣A-Za-z]/.test(s)) return s.slice(0, 40);
     }
     return '';
@@ -160,7 +164,6 @@
       let title = tidy(rest);
       const generic = /^(제출|회신|신청|마감|입력|보고|등록|접수|회의|연수|일정|행사|협의회)?$/;
       if (title.length < 4 || generic.test(title)) title = subject ? subject + (title && !subject.includes(title) ? ' ' + title : '') : (title || (kind === '일정' ? '일정' : kind));
-      else if (subject && title.length < 8 && !title.includes(subject.slice(0, 4))) title = subject + ' ' + title;
       const ob = title.match(/^(.{2,30}?)\s*(을|를)\s+.*?(제출|회신|신청|입력|응답|등록|보고|작성|보내|올려|업로드|탑재)/);
       if (ob && /보내|올려|업로드|탑재/.test(ob[3])) ob[3] = '제출';
       if (ob) title = ob[1] + ' ' + ob[3];
