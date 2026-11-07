@@ -1269,7 +1269,7 @@
     const r = x.rule; let title = x.title || '일정';
     const isDeadline = r.label === '🔴 제출';
     if (isDeadline && x.time && !/\(\d{1,2}:\d{2}\)$/.test(title)) title += ' (' + x.time + ')';
-    const body = { summary: r.prefix + title, location: x.location || '', description: x.src ? '원문: ' + x.src + '\n(Ram Calendar 일정 도우미로 등록)' : '(Ram Calendar 일정 도우미로 등록)', reminders: { useDefault: false, overrides: [] } };
+    const body = { summary: r.prefix + title, location: x.location || '', description: x.src ? '원문: ' + x.src + '\n(RamCalendar 일정 도우미로 등록)' : '(RamCalendar 일정 도우미로 등록)', reminders: { useDefault: false, overrides: [] } };
     if (r.color) body.colorId = r.color;
     const allDay = isDeadline || !x.time || r.allDay === true;
     if (r.time && !x.time) { // 할 일: 그날 23~24시
@@ -1362,7 +1362,7 @@
   }
 
   async function initSettingsWindow() {
-    document.body.classList.add('settings-mode'); document.title = 'Ram Calendar 설정';
+    document.body.classList.add('settings-mode'); document.title = 'RamCalendar 설정';
     const r = await api.getCfg(); S.cfg = r.ok ? r.data : {};
     themeApply(); bind(); stAiBind();
     if (S.cfg.loggedIn) { const c = await api.calendars(); if (c.ok) S.cals = c.data; }

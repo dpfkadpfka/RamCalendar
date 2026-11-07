@@ -1,13 +1,13 @@
-// Ram Calendar(구 예람달력) — 구글 캘린더 연동 바탕화면 달력 (Electron main process)
+// RamCalendar(구 예람달력·Ram Calendar) — 구글 캘린더 연동 바탕화면 달력 (Electron main process)
 const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, safeStorage, screen, session, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
 const os = require('os');
-// 이름을 Ram Calendar로 바꿔도 예전 설정·로그인(예람달력 폴더)을 그대로 쓰도록 저장 위치 고정
+// 이름을 바꿔도 예전 설정·로그인(예람달력 폴더)을 그대로 쓰도록 저장 위치 고정
 try { app.setPath('userData', path.join(app.getPath('appData'), '예람달력')); } catch {}
-const APP_NAME = 'Ram Calendar';
+const APP_NAME = 'RamCalendar';
 // 윈도우 11(22H2 이상)이면 바탕화면이 비치는 진짜 유리(아크릴) 효과 사용
 const ACRYLIC = process.platform === 'win32' && Number((os.release().split('.')[2]) || 0) >= 22621;
 
@@ -73,10 +73,10 @@ function login() {
       if (u.pathname !== '/') { res.writeHead(404); res.end(); return; }
       const code = u.searchParams.get('code');
       const err = u.searchParams.get('error');
-      const page = (msg) => `<!doctype html><meta charset="utf-8"><title>Ram Calendar</title><body style="font-family:'Malgun Gothic',sans-serif;padding:40px;font-size:18px">${msg}</body>`;
+      const page = (msg) => `<!doctype html><meta charset="utf-8"><title>RamCalendar</title><body style="font-family:'Malgun Gothic',sans-serif;padding:40px;font-size:18px">${msg}</body>`;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       if (err || !code || u.searchParams.get('state') !== state) {
-        res.end(page('로그인이 취소됐어요. Ram Calendar에서 다시 시도해 주세요.'));
+        res.end(page('로그인이 취소됐어요. RamCalendar에서 다시 시도해 주세요.'));
         finish(new Error(err || 'LOGIN_FAILED'));
         return;
       }
@@ -94,7 +94,7 @@ function login() {
         if (!r.ok || !j.refresh_token) throw new Error(j.error_description || j.error || 'NO_REFRESH_TOKEN');
         cfg.refreshToken = enc(j.refresh_token); saveCfg();
         accessToken = j.access_token; accessExp = Date.now() + (j.expires_in - 60) * 1000;
-        res.end(page('✅ 로그인 완료! 이 창을 닫고 Ram Calendar로 돌아가세요.'));
+        res.end(page('✅ 로그인 완료! 이 창을 닫고 RamCalendar로 돌아가세요.'));
         finish(null);
       } catch (e) {
         res.end(page('로그인 중 문제가 생겼어요: ' + String(e.message).replace(/</g, '&lt;')));
@@ -167,7 +167,7 @@ async function pushSync() {
   if (!cfg.refreshToken) return;
   const data = { v: 1, at: cfg.syncAt || Date.now() };
   SYNC_KEYS.forEach(k => { data[k] = cfg[k] || (k === 'notes' ? [] : {}); });
-  const body = { summary: 'Ram Calendar 메모 동기화 (지우지 마세요)', description: JSON.stringify(data), start: { date: '2000-01-01' }, end: { date: '2000-01-02' },
+  const body = { summary: 'RamCalendar 메모 동기화 (지우지 마세요)', description: JSON.stringify(data), start: { date: '2000-01-01' }, end: { date: '2000-01-02' },
     transparency: 'transparent', visibility: 'private', extendedProperties: { private: { ramcal: 'sync' } } };
   if (!syncEventId) { const ev = await findSyncEvent(); if (ev) syncEventId = ev.id; }
   if (syncEventId) {
@@ -243,7 +243,7 @@ function showAlarm(e, key) {
   if (alarmWins.length >= 4) { const old = alarmWins.shift(); if (old && !old.isDestroyed()) old.close(); }
   const d = { key, title: e.title, location: e.location, start: e.start, end: e.end, calName: e.calName, color: e.color, dark: nativeTheme.shouldUseDarkColors, sound: cfg.alarmSound !== false };
   const w = new BrowserWindow({ width: 372, height: 150, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
-    alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, hasShadow: false, title: 'Ram Calendar 알림',
+    alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, hasShadow: false, title: 'RamCalendar 알림',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, autoplayPolicy: 'no-user-gesture-required' } });
   w._alarm = { e, key };
   try { w.setAlwaysOnTop(true, 'screen-saver'); } catch {}
@@ -429,7 +429,7 @@ function openSettingsWindow() {
   let x = b.x - w - 12; if (x < wa.x) x = Math.min(b.x + b.width + 12, wa.x + wa.width - w); if (x < wa.x) x = wa.x + 20;
   settingsDone = false;
   settingsWin = new BrowserWindow({
-    width: w, height: h, x, y: Math.max(wa.y, b.y), minWidth: 420, minHeight: 360, title: 'Ram Calendar 설정', icon: iconPath(),
+    width: w, height: h, x, y: Math.max(wa.y, b.y), minWidth: 420, minHeight: 360, title: 'RamCalendar 설정', icon: iconPath(),
     autoHideMenuBar: true, alwaysOnTop: !!cfg.alwaysOnTop, backgroundColor: '#f6f7f9', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
@@ -466,7 +466,7 @@ function createWindow() {
 
 function trayMenu() {
   return Menu.buildFromTemplate([
-    { label: 'Ram Calendar 열기', click: () => { win.show(); win.focus(); } },
+    { label: 'RamCalendar 열기', click: () => { win.show(); win.focus(); } },
     { label: '새로고침', click: () => win.webContents.send('app:refresh') },
     { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
     { type: 'separator' },
@@ -518,8 +518,8 @@ function setJumpList() {
   try {
     app.setUserTasks([
       t('--check-update', '업데이트 확인', '새 버전이 있는지 확인해요'),
-      t('--open-settings', '설정 열기', 'Ram Calendar 설정을 열어요'),
-      t('--quit', '완전히 종료', '트레이까지 Ram Calendar를 꺼요')
+      t('--open-settings', '설정 열기', 'RamCalendar 설정을 열어요'),
+      t('--quit', '완전히 종료', '트레이까지 RamCalendar를 꺼요')
     ]);
   } catch (e) { console.error(e); }
 }
