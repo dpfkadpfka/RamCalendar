@@ -1293,8 +1293,10 @@
     $('asKeyLink').onclick = (e) => { e.preventDefault(); api.win('open', 'https://aistudio.google.com/apikey'); };
     $('asKeySave').onclick = async () => {
       const k = $('asKeyInput').value.trim(); if (!k) return;
-      const r = await api.assistKey(k); $('asKeyInput').value = '';
-      if (r.ok) { S.cfg.hasAiKey = true; AS.keyOpen = false; asApply(); asBot('AI를 연결했어요. 이제 복잡한 문장도 알아들어요.'); }
+      $('asKeySave').disabled = true; $('asKeyMsg').textContent = '키를 확인하는 중…';
+      const r = await api.assistKey(k); $('asKeySave').disabled = false;
+      if (r.ok) { $('asKeyInput').value = ''; $('asKeyMsg').textContent = ''; S.cfg.hasAiKey = true; AS.keyOpen = false; asApply(); asBot('Gemini AI를 연결했어요. 이제 복잡한 문장도 알아들어요.'); }
+      else $('asKeyMsg').textContent = r.message;
     };
     $('asKeyDel').onclick = async () => { const r = await api.assistKey(''); if (r.ok) { S.cfg.hasAiKey = false; AS.keyOpen = false; asApply(); asBot('AI 연결을 끊었어요. 날짜 규칙으로 찾을게요.'); } };
     $('asForm').addEventListener('submit', (e) => { e.preventDefault(); asSend(); });
@@ -1314,8 +1316,10 @@
     $('stAiLink').onclick = (e) => { e.preventDefault(); api.win('open', 'https://aistudio.google.com/apikey'); };
     $('stAiSave').onclick = async () => {
       const k = $('stAiKey').value.trim(); if (!k) { $('stAiKey').focus(); return; }
-      const r = await api.assistKey(k); $('stAiKey').value = '';
-      if (r.ok) { S.cfg.hasAiKey = true; stAiRender(); }
+      $('stAiSave').disabled = true; $('stAiMsg').textContent = '키를 확인하는 중…';
+      const r = await api.assistKey(k); $('stAiSave').disabled = false;
+      if (r.ok) { $('stAiKey').value = ''; $('stAiMsg').textContent = '연결됐어요'; S.cfg.hasAiKey = true; stAiRender(); }
+      else $('stAiMsg').textContent = r.message;
     };
     $('stAiDel').onclick = async () => { const r = await api.assistKey(''); if (r.ok) { S.cfg.hasAiKey = false; stAiRender(); } };
     stAiRender();

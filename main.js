@@ -345,6 +345,13 @@ ipcMain.handle('ev:get', wrap(async (calId, id) => api('GET', `/calendars/${enc1
 // 키는 각자 넣는 무료 Gemini 키. 이 컴퓨터에만 암호화해 저장하고, 붙여넣은 글만 구글 AI로 보낸다.
 ipcMain.handle('assist:setKey', wrap(async (key) => {
   key = String(key || '').trim();
+  if (key) {
+    // 저장 전에 진짜 쓸 수 있는 키인지 한 번 확인
+    if (!/^AIza[\w-]{20,}$/.test(key)) { const e = new Error('키 모양이 달라요. AIza로 시작하는 키 전체를 복사해 붙여넣어 주세요.'); e.code = 'BAD_KEY'; throw e; }
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': key } }).catch(() => null);
+    if (!r) { const e = new Error('인터넷 연결을 확인해 주세요.'); e.code = 'NET'; throw e; }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error(r.status === 400 || r.status === 403 ? '이 키로는 연결되지 않아요. 키를 다시 복사해 붙여넣거나 새 키를 만들어 주세요.' : ('확인 실패: ' + ((j.error && j.error.message) || r.status))); e.code = 'BAD_KEY'; throw e; }
+  }
   if (key) cfg.aiKey = enc(key); else delete cfg.aiKey;
   saveCfg();
   [win, settingsWin].forEach(w => { if (w && !w.isDestroyed()) w.webContents.send('app:cfg'); });

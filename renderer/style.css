@@ -589,3 +589,6 @@ body.settings-mode #stClose{display:none}
 .as-key ol li{margin:2px 0}
 .st-steps{margin:6px 0 10px;padding-left:20px;font-size:13px;line-height:1.7}
 .st-steps a{color:var(--accent)}
+.as-kmsg{font-size:11.8px;color:var(--danger);margin-top:5px;min-height:0}
+.as-kmsg:empty{display:none}
+.as-key ol .muted,.st-steps .muted{font-size:11.5px}
