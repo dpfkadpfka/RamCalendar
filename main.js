@@ -53,8 +53,8 @@ function dec(s) {
   return '';
 }
 function publicCfg() {
-  const { refreshToken, clientSecret, ...rest } = cfg;
-  return { ...rest, hasSecret: !!clientSecret, loggedIn: !!refreshToken, acrylic: ACRYLIC, builtIn: !!(BUILTIN.clientId && BUILTIN.clientSecret), version: app.getVersion() };
+  const { refreshToken, clientSecret, aiKey, ...rest } = cfg;
+  return { ...rest, hasSecret: !!clientSecret, hasAiKey: !!aiKey, loggedIn: !!refreshToken, acrylic: ACRYLIC, builtIn: !!(BUILTIN.clientId && BUILTIN.clientSecret), version: app.getVersion() };
 }
 
 // ---------- 구글 로그인 (PKCE + 루프백) ----------
@@ -341,6 +341,31 @@ ipcMain.handle('ev:search', wrap(async (calIds, q, timeMin, timeMax) => {
   return out;
 }));
 ipcMain.handle('ev:get', wrap(async (calId, id) => api('GET', `/calendars/${enc1(calId)}/events/${enc1(id)}`)));
+// ---------- 일정 도우미: AI(선택) ----------
+// 키는 각자 넣는 무료 Gemini 키. 이 컴퓨터에만 암호화해 저장하고, 붙여넣은 글만 구글 AI로 보낸다.
+ipcMain.handle('assist:setKey', wrap(async (key) => {
+  key = String(key || '').trim();
+  if (key) cfg.aiKey = enc(key); else delete cfg.aiKey;
+  saveCfg(); return { hasAiKey: !!key };
+}));
+ipcMain.handle('assist:ai', wrap(async (text, today) => {
+  const key = dec(cfg.aiKey || '');
+  if (!key) { const e = new Error('NO_KEY'); e.code = 'NO_KEY'; throw e; }
+  const prompt = `오늘은 ${today}이다(한국 시간). 아래 글은 학교 메신저·공문·메일이다. 글을 읽는 사람이 해야 하거나 참석해야 하는 일 중 날짜가 있는 것만 골라 JSON 배열로만 답하라.
+각 항목: {"kind":"제출|회의|연수|출장|촬영|발표|일정|할일 중 하나","title":"날짜·시간을 뺀 짧은 제목(25자 이내, 무엇을 하는지)","date":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","time":"HH:MM(24시간) 또는 null","endTime":"HH:MM 또는 null","location":"장소 또는 빈 문자열"}
+규칙: 마감·제출·회신·신청 기한은 kind "제출", date는 마감일, time은 마감 시각. 연도가 없으면 오늘 기준으로 가장 가까운 앞날로. 단순 인사·이미 끝난 일·날짜 없는 것은 빼라. 없으면 [].
+글:
+"""${String(text).slice(0, 6000)}"""`;
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } })
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error((j.error && j.error.message) || ('AI 응답 오류 ' + r.status)); e.code = r.status === 400 || r.status === 403 ? 'BAD_KEY' : 'AI_ERR'; throw e; }
+  const out = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+  const arr = JSON.parse((out[0] && out[0].text) || '[]');
+  return Array.isArray(arr) ? arr : (arr.items || []);
+}));
 ipcMain.handle('ev:create', wrap(async (calId, body) => api('POST', `/calendars/${enc1(calId)}/events`, null, body)));
 ipcMain.handle('ev:patch', wrap(async (calId, id, body) => api('PATCH', `/calendars/${enc1(calId)}/events/${enc1(id)}`, null, body)));
 ipcMain.handle('ev:delete', wrap(async (calId, id) => api('DELETE', `/calendars/${enc1(calId)}/events/${enc1(id)}`)));

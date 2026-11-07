@@ -19,6 +19,7 @@
     <label class="opac" title="창 투명도"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg><input type="range" id="tbOpacity" min="30" max="100" step="5" aria-label="창 투명도"></label>
     <div class="tools">
       <button class="ib" id="addBtn" title="일정 추가" aria-label="일정 추가"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="ib" id="assistBtn" title="일정 도우미 — 글을 붙여넣으면 날짜를 찾아 일정으로" aria-label="일정 도우미"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M9 12.5h.01M12.5 12.5h.01M16 12.5h.01" stroke-width="2.6"/></svg></button>
       <button class="ib" id="searchBtn" title="검색" aria-label="검색"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button>
       <button class="ib" id="refreshBtn" title="새로고침" aria-label="새로고침"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
       <button class="ib" id="panelBtn" title="오른쪽 목록 열기/닫기" aria-label="목록"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M14.5 4.5v15"/></svg></button>
@@ -46,6 +47,26 @@
         </div>
       </div>
     </section>
+    <aside class="assist" id="assist" hidden aria-label="일정 도우미">
+      <div class="as-head">
+        <span class="as-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/></svg></span>
+        <b>일정 도우미</b>
+        <button type="button" class="as-mode" id="asMode" title="AI 연결 설정"></button>
+        <button type="button" class="ib as-x" id="asClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
+      </div>
+      <div class="as-key" id="asKey" hidden>
+        <p><b>AI로 더 똑똑하게 찾기 (선택)</b><br>무료 Gemini 키를 넣으면 복잡한 문장도 알아들어요. 키가 없어도 날짜 규칙으로 찾아요.</p>
+        <ol><li><a href="#" id="asKeyLink">aistudio.google.com/apikey</a> 에서 <b>API 키 만들기</b></li><li>만든 키를 복사해 아래에 붙여넣기</li></ol>
+        <div class="as-keyrow"><input id="asKeyInput" type="password" placeholder="AIza…" autocomplete="off"><button type="button" class="primary" id="asKeySave">저장</button></div>
+        <button type="button" class="as-link" id="asKeyDel" hidden>AI 연결 끊기</button>
+        <small>붙여넣은 글만 구글 AI로 보내고, 키는 이 컴퓨터에만 암호화해 저장해요.</small>
+      </div>
+      <div class="as-log" id="asLog" aria-live="polite"></div>
+      <form class="as-in" id="asForm">
+        <textarea id="asText" rows="3" placeholder="메신저·공문 글을 그대로 붙여넣고 Enter&#10;(줄바꿈은 Shift+Enter)"></textarea>
+        <button type="submit" class="primary" id="asSend" aria-label="보내기"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </form>
+    </aside>
     <aside class="panel" id="panel">
       <div class="tabs" role="tablist">
         <button role="tab" data-mode="day" id="tabDay">일</button>
@@ -230,6 +251,7 @@
 </dialog>
 
 <script src="art.js"></script>
+<script src="assist.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

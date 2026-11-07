@@ -1137,6 +1137,164 @@
     S.events = []; render(); load();
   }
 
+
+  // ---------- 일정 도우미 (챗봇) ----------
+  // 붙여넣은 글에서 날짜·마감을 찾아 카드로 보여 주고, 고른 것만 구글 캘린더에 넣는다.
+  const AS = { open: false, busy: false, keyOpen: false };
+  const KIND_RULE = { 제출: '🔴 제출', 할일: '✔️ 할 일', 출장: '⭐️ 출장', 출강: '⭐️ 출강', 회의: '🖥 회의', 연수: '🖥 연수', 촬영: '📽 촬영', 일정: '🗓 일정', 발표: '🟡 발표' };
+  const ruleByLabel = (l) => RULES.find(r => r.label === l) || RULES.find(r => r.label === '🗓 일정');
+  function asApply() {
+    $('assist').hidden = !AS.open; $('assistBtn').classList.toggle('on', AS.open);
+    $('asMode').textContent = S.cfg.hasAiKey ? 'AI 켜짐' : 'AI 연결';
+    $('asMode').classList.toggle('on', !!S.cfg.hasAiKey);
+    $('asKey').hidden = !AS.keyOpen; $('asKeyDel').hidden = !S.cfg.hasAiKey;
+    if (AS.open && !$('asLog').children.length) asBot('메신저·공문·메일 글을 <b>그대로 붙여넣어</b> 주세요. 날짜와 마감을 찾아 일정으로 만들어 드릴게요.<br><span class="as-ex">예) 학년말 평가계획을 11/14(금) 16시까지 제출해 주세요.</span>');
+    if (AS.open) setTimeout(() => $('asText').focus(), 0);
+  }
+  function asScroll() { const l = $('asLog'); l.scrollTop = l.scrollHeight; }
+  function asBot(html) { const m = el('div', 'as-msg bot'); m.innerHTML = html; $('asLog').appendChild(m); asScroll(); return m; }
+  function asMe(text) { const m = el('div', 'as-msg me', text); $('asLog').appendChild(m); asScroll(); }
+  const wdOf = (d) => '일월화수목금토'[parse(d).getDay()];
+  const shortDate = (d) => (+d.slice(5, 7)) + '/' + (+d.slice(8)) + '(' + wdOf(d) + ')';
+
+  function normAI(arr) {
+    const today = todayStr();
+    return arr.filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(x.date || '')).map(x => ({
+      kind: KIND_RULE[x.kind] ? x.kind : '일정', title: String(x.title || '일정').slice(0, 40),
+      date: x.date, endDate: /^\d{4}-\d{2}-\d{2}$/.test(x.endDate || '') && x.endDate > x.date ? x.endDate : null,
+      time: /^\d{2}:\d{2}$/.test(x.time || '') ? x.time : null, endTime: /^\d{2}:\d{2}$/.test(x.endTime || '') ? x.endTime : null,
+      location: String(x.location || ''), src: '', past: x.date < today, checked: x.date >= today
+    }));
+  }
+
+  async function asSend() {
+    const text = $('asText').value.trim(); if (!text || AS.busy) return;
+    $('asText').value = ''; asMe(text);
+    if (!S.cfg.loggedIn) return asBot('먼저 <b>설정 → 계정</b>에서 구글 로그인을 해 주세요.');
+    AS.busy = true; const wait = asBot('<span class="as-dots"><i></i><i></i><i></i></span> 날짜를 찾는 중이에요');
+    let items = null, how = '날짜 규칙';
+    if (S.cfg.hasAiKey) {
+      const r = await api.assistAI(text, todayStr() + '(' + wdOf(todayStr()) + ')');
+      if (r.ok) { items = normAI(r.data); how = 'AI'; }
+      else if (r.code === 'BAD_KEY') asBot('AI 키가 맞지 않아요. 위쪽 <b>AI 켜짐</b>을 눌러 키를 다시 넣어 주세요. 이번에는 날짜 규칙으로 찾을게요.');
+    }
+    if (!items) items = window.RamAssist.parse(text, new Date()).items;
+    wait.remove(); AS.busy = false;
+    if (!items.length) return asBot('날짜를 찾지 못했어요. <b>11/14(금) 16시까지</b>처럼 날짜가 들어간 글을 붙여넣어 주세요.' + (S.cfg.hasAiKey ? '' : '<br><span class="as-ex">문장이 복잡하면 위쪽 <b>AI 연결</b>을 켜 보세요.</span>'));
+    await asMarkDup(items);
+    asCards(items, how);
+  }
+
+  // 이미 캘린더에 있는 일정은 체크를 빼고 표시
+  async function asMarkDup(items) {
+    const ds = items.map(i => i.date).sort(); const a = ds[0], b = addDays(ds[ds.length - 1], 1);
+    const r = await api.events(visibleCalIds(), parse(a).toISOString(), parse(b).toISOString());
+    if (!r.ok) return;
+    const key = (t) => String(t).replace(/^[^\p{L}\p{N}]*(\[[^\]]*\])?\s*/u, '').replace(/\s|\(\d{1,2}:\d{2}\)/g, '');
+    items.forEach(it => {
+      const k = key(it.title);
+      const hit = r.data.items.find(e => { const d = (e.start.date || (e.start.dateTime || '').slice(0, 10)); const ek = key(e.summary || ''); return d === it.date && k && ek && (ek.includes(k) || k.includes(ek)); });
+      if (hit) { it.dup = true; it.checked = false; }
+    });
+  }
+
+  function asCards(items, how) {
+    const m = asBot(`<b>${items.length}개</b>를 찾았어요. 맞는지 보고 고쳐서 등록해 주세요.<span class="as-how">${how}</span>`);
+    const list = el('div', 'as-cards'); m.appendChild(list);
+    items.forEach(it => {
+      const c = el('div', 'as-card' + (it.past || it.dup ? ' dim' : ''));
+      const top = el('div', 'as-ctop');
+      const ck = el('input'); ck.type = 'checkbox'; ck.checked = it.checked; ck.title = '등록할 일정';
+      const kind = el('select', 'as-kind'); RULES.forEach(r => { const o = el('option', null, r.label); o.value = r.label; kind.appendChild(o); });
+      kind.value = KIND_RULE[it.kind] || '🗓 일정';
+      top.append(ck, kind);
+      if (it.dup) top.appendChild(el('span', 'as-tag', '이미 있음'));
+      else if (it.past) top.appendChild(el('span', 'as-tag', '지난 날짜'));
+      const title = el('input', 'as-title'); title.value = it.title; title.placeholder = '제목';
+      const row = el('div', 'as-crow');
+      const d = el('input'); d.type = 'date'; d.value = it.date; d.title = '날짜';
+      const t = el('input'); t.type = 'time'; t.value = it.time || ''; t.title = '시각(비우면 종일)';
+      row.append(d, t);
+      if (it.endDate) row.appendChild(el('span', 'as-range', '~ ' + shortDate(it.endDate)));
+      c.append(top, title, row);
+      if (it.location) c.appendChild(el('div', 'as-loc', '📍 ' + it.location));
+      c._get = () => ({ on: ck.checked, rule: ruleByLabel(kind.value), title: title.value.trim(), date: d.value, time: t.value, endDate: it.endDate, endTime: it.endTime, location: it.location, src: it.src });
+      ck.onchange = () => c.classList.toggle('off', !ck.checked); c.classList.toggle('off', !ck.checked);
+      list.appendChild(c);
+    });
+    const foot = el('div', 'as-foot');
+    const cal = el('select', 'as-cal');
+    S.cals.filter(c => c.writable).forEach(c => { const o = el('option', null, c.name + (c.primary ? ' (기본)' : '')); o.value = c.id; cal.appendChild(o); });
+    const pri = S.cals.find(c => c.primary && c.writable); if (pri) cal.value = pri.id;
+    const go = el('button', 'primary', '등록'); go.type = 'button';
+    const upd = () => { const n = [...list.children].filter(c => c._get().on).length; go.textContent = n ? n + '개 등록' : '등록'; go.disabled = !n; };
+    list.addEventListener('change', upd); upd();
+    go.onclick = () => asRegister([...list.children].map(c => c._get()).filter(x => x.on), cal.value, m, go);
+    foot.append(cal, go); m.appendChild(foot); asScroll();
+  }
+
+  function asBody(x) {
+    const r = x.rule; let title = x.title || '일정';
+    const isDeadline = r.label === '🔴 제출';
+    if (isDeadline && x.time && !/\(\d{1,2}:\d{2}\)$/.test(title)) title += ' (' + x.time + ')';
+    const body = { summary: r.prefix + title, location: x.location || '', description: x.src ? '원문: ' + x.src + '\n(Ram Calendar 일정 도우미로 등록)' : '(Ram Calendar 일정 도우미로 등록)', reminders: { useDefault: false, overrides: [] } };
+    if (r.color) body.colorId = r.color;
+    const allDay = isDeadline || !x.time || r.allDay === true;
+    if (r.time && !x.time) { // 할 일: 그날 23~24시
+      body.start = { dateTime: localIso(x.date, r.time[0]), timeZone: TZ }; body.end = { dateTime: localIso(addDays(x.date, 1), '00:00'), timeZone: TZ };
+    } else if (allDay) {
+      body.start = { date: x.date }; body.end = { date: addDays(x.endDate && x.endDate > x.date ? x.endDate : x.date, 1) };
+    } else {
+      const ed = x.endDate && x.endDate > x.date ? x.endDate : x.date;
+      let et = x.endTime;
+      if (!et || (ed === x.date && et <= x.time)) { const z = new Date(localIso(x.date, x.time)); z.setHours(z.getHours() + 1); et = hm(z); }
+      body.start = { dateTime: localIso(x.date, x.time), timeZone: TZ }; body.end = { dateTime: localIso(ed, et), timeZone: TZ };
+    }
+    return body;
+  }
+
+  async function asRegister(xs, calId, msg, btn) {
+    if (!xs.length) return;
+    btn.disabled = true; btn.textContent = '등록 중…';
+    const ok = [], bad = [];
+    for (const x of xs) {
+      if (!x.date) { bad.push(x.title + ' (날짜 없음)'); continue; }
+      const r = await api.create(calId, asBody(x));
+      if (r.ok) ok.push(x); else bad.push(x.title + ' — ' + r.message);
+    }
+    msg.querySelectorAll('input,select,button').forEach(e => e.disabled = true);
+    btn.textContent = ok.length ? '등록 완료' : '다시 시도';
+    if (!ok.length) { msg.querySelectorAll('input,select,button').forEach(e => e.disabled = false); }
+    if (ok.length) msg.classList.add('done');
+    if (ok.length) {
+      const b = asBot(`<b>${ok.length}개</b>를 등록했어요. 누르면 그 날짜로 가요.`);
+      const ul = el('div', 'as-done');
+      ok.sort((a, b) => a.date < b.date ? -1 : 1).forEach(x => {
+        const a = el('button', 'as-go', shortDate(x.date) + '  ' + x.rule.prefix + x.title); a.type = 'button';
+        a.onclick = () => { S.sel = x.date; if (x.date.slice(0, 7) !== S.ym) { S.ym = x.date.slice(0, 7); S.events = []; } render(); load(); };
+        ul.appendChild(a);
+      });
+      b.appendChild(ul);
+      const first = ok[0].date; if (first.slice(0, 7) === S.ym) load(); api.win('alarmRefresh');
+    }
+    if (bad.length) asBot('등록하지 못한 것: <br>' + bad.map(x => '· ' + x.replace(/</g, '&lt;')).join('<br>'));
+  }
+
+  function asBind() {
+    $('assistBtn').onclick = () => { AS.open = !AS.open; asApply(); };
+    $('asClose').onclick = () => { AS.open = false; asApply(); };
+    $('asMode').onclick = () => { AS.keyOpen = !AS.keyOpen; asApply(); if (AS.keyOpen) $('asKeyInput').focus(); };
+    $('asKeyLink').onclick = (e) => { e.preventDefault(); api.win('open', 'https://aistudio.google.com/apikey'); };
+    $('asKeySave').onclick = async () => {
+      const k = $('asKeyInput').value.trim(); if (!k) return;
+      const r = await api.assistKey(k); $('asKeyInput').value = '';
+      if (r.ok) { S.cfg.hasAiKey = true; AS.keyOpen = false; asApply(); asBot('AI를 연결했어요. 이제 복잡한 문장도 알아들어요.'); }
+    };
+    $('asKeyDel').onclick = async () => { const r = await api.assistKey(''); if (r.ok) { S.cfg.hasAiKey = false; AS.keyOpen = false; asApply(); asBot('AI 연결을 끊었어요. 날짜 규칙으로 찾을게요.'); } };
+    $('asForm').addEventListener('submit', (e) => { e.preventDefault(); asSend(); });
+    $('asText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); asSend(); } });
+  }
+
   async function initSettingsWindow() {
     document.body.classList.add('settings-mode'); document.title = 'Ram Calendar 설정';
     const r = await api.getCfg(); S.cfg = r.ok ? r.data : {};
@@ -1147,7 +1305,7 @@
   async function init() {
     if (SET_MODE) return initSettingsWindow();
     const r = await api.getCfg(); S.cfg = r.ok ? r.data : {};
-    themeApply(); lockApply(); applyPanel(); applyFoot(); bind(); applyMini(); render();
+    themeApply(); lockApply(); applyPanel(); applyFoot(); bind(); asBind(); asApply(); applyMini(); render();
     $('tbOpacity').value = Math.round((S.cfg.opacity || 1) * 100);
     await load({ cals: true }); startTimer();
   }
