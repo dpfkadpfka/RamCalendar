@@ -35,7 +35,7 @@
 </head>
 <body>
 <div class="card" id="card">
-  <div class="head"><img src="../assets/icon.png" alt=""><span>RamCalendar</span><span id="ago"></span><button class="x" id="x" title="닫기">✕</button></div>
+  <div class="head"><img id="ico" src="../assets/icons/icon1.png" alt=""><span>RamCalendar</span><span id="ago"></span><button class="x" id="x" title="닫기">✕</button></div>
   <div class="body" id="open" title="달력에서 보기">
     <div class="bar" id="bar"></div>
     <div class="txt">
@@ -52,6 +52,7 @@
 </div>
 <script>
   const D = JSON.parse(new URLSearchParams(location.search).get('d') || '{}');
+  if (D.icon >= 1 && D.icon <= 6) document.getElementById('ico').src = '../assets/icons/icon' + D.icon + '.png';
   if (D.dark) document.documentElement.classList.add('dark');
   const $ = (id) => document.getElementById(id);
   $('t').textContent = D.title || '(제목 없음)';

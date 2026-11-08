@@ -52,5 +52,6 @@ jobs:
         run: |
           V="v$(node -p "require('./package.json').version")"
           ls -la dist
+          cp dist/RamCalendar-Setup-*.exe dist/RamCalendar-Setup.exe   # 버전 번호 없는 주소로 늘 최신 설치 파일을 받게
           gh release upload "$V" dist/*.exe dist/*.exe.blockmap dist/latest.yml --clobber
           N="docs/releases/$V.md"; if [ -f "$N" ]; then gh release edit "$V" --title "RamCalendar $V" --notes-file "$N"; fi

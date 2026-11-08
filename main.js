@@ -241,7 +241,7 @@ function layoutAlarms() {
 }
 function showAlarm(e, key) {
   if (alarmWins.length >= 4) { const old = alarmWins.shift(); if (old && !old.isDestroyed()) old.close(); }
-  const d = { key, title: e.title, location: e.location, start: e.start, end: e.end, calName: e.calName, color: e.color, dark: nativeTheme.shouldUseDarkColors, sound: cfg.alarmSound !== false };
+  const d = { key, title: e.title, location: e.location, start: e.start, end: e.end, calName: e.calName, color: e.color, icon: iconNo(), dark: nativeTheme.shouldUseDarkColors, sound: cfg.alarmSound !== false };
   const w = new BrowserWindow({ width: 372, height: 150, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
     alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, hasShadow: false, title: 'RamCalendar 알림',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, autoplayPolicy: 'no-user-gesture-required' } });
@@ -280,7 +280,7 @@ function wrap(fn) {
 
 ipcMain.handle('cfg:get', wrap(async () => publicCfg()));
 ipcMain.handle('cfg:set', wrap(async (patch) => {
-  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim'];
+  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim', 'appIcon', 'skinPattern', 'patternTone'];
   for (const k of Object.keys(patch || {})) if (allowed.includes(k)) cfg[k] = patch[k];
   if ('clientId' in patch || 'clientSecret' in patch) { cfg.clientId = String(cfg.clientId || '').trim(); cfg.clientSecret = String(cfg.clientSecret || '').trim(); }
   if (SYNC_KEYS.some(k => k in (patch || {}))) { cfg.syncAt = Date.now(); schedulePush(); }
@@ -419,6 +419,7 @@ function applyWindowCfg() {
   win.setResizable(!cfg.locked);
   try { app.setLoginItemSettings({ openAtLogin: !!cfg.autoStart, path: process.execPath }); } catch {}
   if (tray) tray.setContextMenu(trayMenu());
+  applyIcon();
 }
 
 // 설정은 달력 밖으로도 옮길 수 있는 별도 창으로 띄운다
@@ -440,7 +441,17 @@ function openSettingsWindow() {
   settingsWin.on('closed', () => { if (!settingsDone && win) win.webContents.send('app:settings', { type: 'cancel' }); settingsWin = null; });
 }
 
-function iconPath() { return path.join(__dirname, 'assets', 'icon.png'); }
+// 앱 아이콘: 1번이 기본, 설정 → 창·동작에서 2~6번으로 바꿀 수 있다(창·작업 표시줄·트레이·알림 창)
+function iconNo() { const n = parseInt(cfg.appIcon, 10); return n >= 1 && n <= 6 ? n : 1; }
+function iconPath() { return path.join(__dirname, 'assets', 'icons', 'icon' + iconNo() + '.png'); }
+let iconApplied = 0;
+function applyIcon() {
+  if (iconApplied === iconNo()) return; iconApplied = iconNo();
+  const img = nativeImage.createFromPath(iconPath());
+  try { if (win && !win.isDestroyed()) win.setIcon(img); } catch {}
+  try { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.setIcon(img); } catch {}
+  try { if (tray) tray.setImage(img.resize({ width: 16, height: 16 })); } catch {}
+}
 
 function createWindow() {
   const wa = screen.getPrimaryDisplay().workArea;
@@ -547,7 +558,7 @@ if (!app.requestSingleInstanceLock()) {
     // 앱이 꺼져 있을 때 점프 목록으로 켠 경우
     setTimeout(() => { if (process.argv.includes('--check-update')) checkUpdate(true); else if (process.argv.includes('--open-settings')) openSettingsWindow(); }, 1500);
     try {
-      tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: 16, height: 16 }));
+      tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: 16, height: 16 })); iconApplied = iconNo();
       tray.setToolTip(APP_NAME);
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);

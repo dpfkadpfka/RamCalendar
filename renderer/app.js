@@ -701,6 +701,30 @@
     forestdk: F('밤의 숲', true, '#121a16', '#1a2620', '#e5f1ea', '#97b3a4', '#2a3b32', '#5fd49a'),
     plum: F('플럼', true, '#1c1420', '#271c2d', '#f2e9f6', '#b6a2c0', '#3a2b42', '#e28ad6')
   };
+  // ---------- 무늬(특별) 스킨: 모눈 노트 · 코르크 보드 · 다이어리, 스킨마다 색감 4가지 ----------
+  const PATTERNS = {
+    grid: { name: '모눈 노트', tones: [
+      { name: '파랑', paper: '#fbfaf5', a: '#dde8f5', cell: '#b9cbe4', m: '#f2a0a8', accent: '#2f5bd3' },
+      { name: '초록', paper: '#f7fbf6', a: '#d6ead8', cell: '#b5d4ba', m: '#f2a0a8', accent: '#2e8b57' },
+      { name: '분홍', paper: '#fffafb', a: '#f6dbe4', cell: '#ecbccc', m: '#9ab8e8', accent: '#d6527f' },
+      { name: '회색', paper: '#fafafa', a: '#e6e6e9', cell: '#cfcfd6', m: '#f2a0a8', accent: '#4f5868' }] },
+    cork: { name: '코르크 보드', tones: [
+      { name: '코르크', paper: '#fffdf7', a: '#c89b6a', b: '#b5875a', c: '#d9b083', wood: '#7a5233', accent: '#c0563b' },
+      { name: '밝은 코르크', paper: '#fffefa', a: '#dcc09a', b: '#cdae84', c: '#e9d3b1', wood: '#9b7550', accent: '#b8573f' },
+      { name: '다크 우드', paper: '#fbf6ec', a: '#7b5a40', b: '#6a4c35', c: '#8c6a4e', wood: '#3f2a1c', accent: '#c0563b' },
+      { name: '펠트 그레이', paper: '#ffffff', a: '#9aa1ab', b: '#8c939d', c: '#a9b0b9', wood: '#4a505a', accent: '#3d6fd8' }] },
+    diary: { name: '다이어리', tones: [
+      { name: '라벤더', paper: '#fbf9f4', a: '#d9d2e6', cell: '#e4dcef', t1: 'rgba(186,160,236,.55)', t2: 'rgba(214,198,246,.55)', t3: 'rgba(130,200,190,.6)', t4: 'rgba(170,225,215,.6)', accent: '#8a6ad8' },
+      { name: '민트', paper: '#f8fbf9', a: '#cfe5de', cell: '#dbece6', t1: 'rgba(120,205,180,.55)', t2: 'rgba(175,228,212,.55)', t3: 'rgba(240,160,180,.6)', t4: 'rgba(250,200,212,.6)', accent: '#159c84' },
+      { name: '피치', paper: '#fdf9f6', a: '#efd6cd', cell: '#f2e1da', t1: 'rgba(245,160,140,.55)', t2: 'rgba(250,200,185,.55)', t3: 'rgba(150,180,235,.6)', t4: 'rgba(195,212,245,.6)', accent: '#e2725b' },
+      { name: '하늘', paper: '#f8fafd', a: '#d3e1f1', cell: '#dfe8f4', t1: 'rgba(130,175,240,.55)', t2: 'rgba(185,210,248,.55)', t3: 'rgba(240,165,195,.6)', t4: 'rgba(250,205,222,.6)', accent: '#2f6fd6' }] }
+  };
+  const patternOf = (c) => {
+    if (c.style !== 'pattern') return null;
+    const key = PATTERNS[c.skinPattern] ? c.skinPattern : 'grid', p = PATTERNS[key];
+    const ti = Math.min(p.tones.length - 1, Math.max(0, parseInt(c.patternTone, 10) || 0));
+    return { key, p, tone: p.tones[ti], ti };
+  };
   const skin3dOf = (c) => (c.style === '3d' && SKINS3D[c.skin3d]) || (c.style === 'flat' && SKINSFLAT[c.skinFlat]) || null;
   const DEFAULT_SCENE = 'pastel';
   const SCENE_ALIAS = { lavender: 'lilac', apricot: 'peach', charcoal: 'pastelnight', hud: 'galaxy', moonlight: 'galaxy', medieval: 'pastelnight' };
@@ -718,6 +742,7 @@
     let t = c.theme;
     if (glassOn(c) && sc) t = sc.dark ? 'dark' : 'light';
     const k3 = skin3dOf(c); if (k3) t = k3.dark ? 'dark' : 'light';
+    if (c.style === 'pattern') t = 'light';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
     lookApply();
   }
@@ -758,6 +783,15 @@
       set('--hl', k3.hl); set('--sh', k3.sh); set('--sh2', k3.sh2);
       document.body.style.background = k3.bgCss;
     }
+    const pt = patternOf(c);
+    if (pt) {
+      const T = pt.tone, set = (k, v) => s.setProperty(k, v);
+      root.dataset.pattern = pt.key;
+      set('--bg', T.paper); set('--surface', T.paper); set('--surface2', '#ffffff'); set('--fg', '#26303f'); set('--muted', '#6b7383');
+      set('--line', T.cell || 'transparent'); set('--accent', T.accent); set('--sat', T.accent); set('--accent-soft', 'color-mix(in srgb,' + T.accent + ' 16%, #ffffff)');
+      ['paper', 'a', 'b', 'c', 'm', 'wood', 't1', 't2', 't3', 't4', 'cell'].forEach(k => { if (T[k]) set('--p-' + k, T[k]); else s.removeProperty('--p-' + k); });
+      document.body.style.background = T.paper;
+    } else delete root.dataset.pattern;
     // 2) 직접 고른 포인트 색·카드 색이 있으면 우선
     if (isHex(c.accent)) { s.setProperty('--accent', c.accent); s.setProperty('--sat', c.accent); s.setProperty('--accent-soft', 'color-mix(in srgb,' + c.accent + ' 16%, var(--surface))'); }
     if (isHex(c.bgColor)) {
@@ -835,6 +869,14 @@
       label('라이트'); addBtn(cur, '', '기본', '', false, '', pick);
       Object.entries(SKINS3D).filter(([, v]) => !v.dark).forEach(([k, v]) => btn3(k, v));
       label('다크'); Object.entries(SKINS3D).filter(([, v]) => v.dark).forEach(([k, v]) => btn3(k, v));
+    } else if (style === 'pattern') {
+      const pt = patternOf(c);
+      const prev = { grid: 'linear-gradient(#cdddf0 1px,transparent 1px) 0 0/8px 8px,linear-gradient(90deg,#cdddf0 1px,#fbfaf5 1px) 0 0/8px 8px',
+        cork: 'radial-gradient(#b5875a 1px,transparent 1.6px) 0 0/6px 6px,#c89b6a', diary: 'radial-gradient(#cfc6e0 1px,transparent 1.3px) 0 0/8px 8px,#fbf9f4' };
+      label('무늬');
+      Object.entries(PATTERNS).forEach(([k, v]) => addBtn(pt.key, k, v.name, prev[k], false, v.tones[0].accent, (kk) => setDraft({ skinPattern: kk, patternTone: 0 })));
+      label('색감');
+      pt.p.tones.forEach((t, i) => addBtn(String(pt.ti), String(i), t.name, 'linear-gradient(180deg,' + (t.a || t.paper) + ' 0 72%,' + t.accent + ' 72%)', false, t.accent, () => setDraft({ patternTone: i })));
     } else if (style === 'glass') {
       const cur = c.scene === 'desktop' ? 'desktop' : (c.scene === 'photo' && c.bgImage ? 'photo' : SCENES[c.scene] ? c.scene : (SCENE_ALIAS[c.scene] || DEFAULT_SCENE));
       const pick = (k) => setDraft({ scene: k });
@@ -913,6 +955,7 @@
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
     $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart;
+    renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
     if (!S.cals.length) { box.appendChild(el('span', 'muted', c.loggedIn ? '불러오는 중…' : '로그인하면 목록이 나와요.')); return; }
@@ -930,6 +973,18 @@
   // ---------- 설정 미리보기 → 저장/취소 ----------
   // 설정은 따로 뜨는 창(SET_MODE)에서 고르고, 바뀐 값은 달력 창으로 보내 미리보기한다
   const SET_MODE = new URLSearchParams(location.search).has('settings');
+  // 앱 아이콘 고르기 (1번이 기본)
+  function renderIcons() {
+    const box = $('stIcons'); if (!box) return; box.textContent = '';
+    const cur = Math.min(6, Math.max(1, parseInt(V().appIcon, 10) || 1));
+    for (let i = 1; i <= 6; i++) {
+      const b = el('button', 'ico-btn'); b.type = 'button'; b.setAttribute('aria-pressed', String(cur === i)); b.title = i === 1 ? '기본' : i + '번';
+      const im = el('img'); im.src = '../assets/icons/icon' + i + '.png'; im.alt = ''; b.appendChild(im);
+      if (i === 1) b.appendChild(el('span', null, '기본'));
+      b.onclick = () => { setDraft({ appIcon: i }); renderIcons(); };
+      box.appendChild(b);
+    }
+  }
   function setDraft(patch) {
     if (!S.draft) S.draft = {};
     Object.assign(S.draft, patch);

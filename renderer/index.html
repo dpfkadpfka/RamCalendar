@@ -204,11 +204,12 @@
         </section>
         <section class="st-page" data-page="skin" hidden>
           <h3>스킨</h3>
-          <select id="stStyle" hidden><option value="glass">유리</option><option value="3d">입체</option><option value="flat">평면</option></select>
+          <select id="stStyle" hidden><option value="glass">유리</option><option value="3d">입체</option><option value="flat">평면</option><option value="pattern">무늬</option></select>
           <div class="seg" id="stStyleSeg" role="tablist">
             <button type="button" data-v="glass">유리 <small>글래스모피즘</small></button>
             <button type="button" data-v="3d">입체 <small>3D</small></button>
             <button type="button" data-v="flat">평면 <small>기본</small></button>
+            <button type="button" data-v="pattern">무늬 <small>특별</small></button>
           </div>
           <div class="field" id="stGlassRow"><div class="scenes" id="stScene"></div></div>
           <p class="note" id="stSkinNote" hidden></p>
@@ -258,6 +259,8 @@
           <label class="check"><input type="checkbox" id="stTop"> 항상 다른 창 위에 표시</label>
           <label class="check"><input type="checkbox" id="stLock"> 위치·크기 고정</label>
           <label class="check"><input type="checkbox" id="stAuto"> 윈도우 시작할 때 자동 실행</label>
+          <h3 class="st-sub">앱 아이콘 <small class="muted">창 · 작업 표시줄 · 트레이 · 알림 창에 보여요</small></h3>
+          <div class="icon-pick" id="stIcons"></div>
         </section>
       </div>
     </div>
