@@ -22,7 +22,7 @@
 | 바뀐 일정 고치기 | "기한이 변경되었습니다"를 넣으면 기존 일정을 찾아 날짜만 옮겨요 |
 | 구글 캘린더 연동 | 휴대폰에서 넣은 일정도 바탕화면 달력에 바로 보여요 |
 | 컴퓨터 알림 | 시작 30분 전 화면 오른쪽 아래에 — 휴대폰은 조용히 |
-| 꾸미기 | 날짜 칸 색 · 테두리 · 이모지, 포스트잇 메모, 스킨 40가지 넘게 |
+| 꾸미기 | 날짜 칸 색 · 테두리 · 이모지, 포스트잇 메모, 스킨 40가지 넘게(무늬 스킨 포함), 앱 아이콘 6가지 |
 
 <p align="center"><img src="docs/readme/f1.webp" width="880" alt="일정 도우미 — 글을 붙여넣으면 일정이 돼요"></p>
 <p align="center"><img src="docs/readme/f2.webp" width="880" alt="바뀐 일정 고치기 — 기존 일정 옮기기 · 새로 추가 · 건너뛰기"></p>
@@ -30,7 +30,7 @@
 <p align="center"><img src="docs/readme/f4.webp" width="880" alt="일정 추가 창과 오늘만 보기"></p>
 <p align="center"><img src="docs/readme/f5.webp" width="880" alt="컴퓨터 알림"></p>
 <p align="center"><img src="docs/readme/f6.webp" width="880" alt="날짜 칸 꾸미기와 포스트잇 메모"></p>
-<p align="center"><img src="docs/readme/f7.webp" width="880" alt="스킨 — 은하수 · 입체 클레이 · 평면 노트 · 민트 물결"></p>
+<p align="center"><img src="docs/readme/f7.webp" width="880" alt="스킨과 앱 아이콘 — 은하수 · 입체 클레이 · 민트 물결 · 모눈 노트 · 코르크 보드 · 다이어리"></p>
 
 ---
 
