@@ -1,3 +1,4 @@
+# 릴리스 노트는 docs/releases/v버전.md에 써 두면 그대로 올라간다.
 # v로 시작하는 태그(예: v1.0.1)를 올리면 윈도우 설치 파일을 만들어 깃허브 릴리스에 올린다.
 name: 설치 파일 만들기
 
@@ -38,7 +39,8 @@ jobs:
           if ! git ls-remote --exit-code --tags origin "refs/tags/$V" >/dev/null; then
             git tag "$V" && git push origin "$V"
           fi
-          gh release view "$V" >/dev/null 2>&1 || gh release create "$V" --title "$V" --notes "RamCalendar $V"
+          N="docs/releases/$V.md"; [ -f "$N" ] || { echo "RamCalendar $V" > notes.tmp; N=notes.tmp; }
+          gh release view "$V" >/dev/null 2>&1 || gh release create "$V" --title "RamCalendar $V" --notes-file "$N"
       - name: 설치 파일 만들기
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,3 +53,4 @@ jobs:
           V="v$(node -p "require('./package.json').version")"
           ls -la dist
           gh release upload "$V" dist/*.exe dist/*.exe.blockmap dist/latest.yml --clobber
+          N="docs/releases/$V.md"; if [ -f "$N" ]; then gh release edit "$V" --title "RamCalendar $V" --notes-file "$N"; fi
