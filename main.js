@@ -382,6 +382,7 @@ ipcMain.handle('ev:delete', wrap(async (calId, id) => api('DELETE', `/calendars/
 ipcMain.handle('win:action', wrap(async (act, arg) => {
   if (!win) return;
   if (act === 'minimize') win.minimize();
+  if (act === 'applyUpdate' && updateReady && updater) { quitting = true; updater.quitAndInstall(false, true); return; }
   if (act === 'material') { const on = !!arg && ACRYLIC; try { if (win.setBackgroundMaterial) win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch {} try { win.setBackgroundColor(on ? '#00000000' : '#f6f7f9'); } catch {} }
   if (act === 'opacity') win.setOpacity(Math.min(1, Math.max(0.3, Number(arg) || 1)));
   if (act === 'mini') {
@@ -479,7 +480,8 @@ function trayMenu() {
   return Menu.buildFromTemplate([
     { label: 'RamCalendar 열기', click: () => { win.show(); win.focus(); } },
     { label: '새로고침', click: () => win.webContents.send('app:refresh') },
-    { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
+    updateReady ? { label: 'v' + updateReady + ' 새 버전 적용하고 다시 켜기', click: () => { quitting = true; updater.quitAndInstall(false, true); } }
+                : { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
     { type: 'separator' },
     { label: '항상 위에 표시', type: 'checkbox', checked: !!cfg.alwaysOnTop, click: (m) => { cfg.alwaysOnTop = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
     { label: '위치·크기 고정', type: 'checkbox', checked: !!cfg.locked, click: (m) => { cfg.locked = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
@@ -497,6 +499,18 @@ function askRestart() {
   dialog.showMessageBox(win && !win.isDestroyed() ? win : null, { type: 'info', title: APP_NAME, message: 'v' + updateReady + ' 업데이트를 받아 두었어요.', detail: '지금 다시 켜면 바로 적용돼요.', buttons: ['지금 다시 켜기', '나중에'], defaultId: 0, cancelId: 1 })
     .then(r => { if (r.response === 0) { quitting = true; updater.quitAndInstall(false, true); } });
 }
+// 새 버전을 받아 두면 화면 오른쪽 아래 윈도우 알림으로 바로 알려 준다 — 누르면 다시 켜서 적용
+let notifiedVer = null;
+function notifyUpdate(ver) {
+  if (notifiedVer === ver) return; notifiedVer = ver;
+  try {
+    const { Notification } = require('electron');
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title: APP_NAME + ' v' + ver + ' 새 버전', body: '알림을 누르면 바로 다시 켜서 적용해요. 그냥 두면 다음에 켤 때 자동으로 바뀌어요.', icon: iconPath(), silent: false });
+    n.on('click', () => { quitting = true; updater.quitAndInstall(false, true); });
+    n.show();
+  } catch (e) { console.error(e); }
+}
 function updateMsg(text) {
   const { dialog } = require('electron');
   dialog.showMessageBox(win && !win.isDestroyed() ? win : null, { type: 'info', title: APP_NAME, message: text, buttons: ['확인'] });
@@ -509,8 +523,10 @@ function checkUpdate(manual) {
       updater.autoDownload = true; updater.autoInstallOnAppQuit = true;
       updater.on('update-downloaded', (info) => {
         updateReady = info.version;
-        if (win) win.webContents.send('app:update', 'v' + info.version + ' 업데이트를 받았어요. 앱을 다시 켜면 적용돼요.');
+        if (win) win.webContents.send('app:update', { msg: 'v' + info.version + ' 새 버전을 받아 두었어요. 눌러서 바로 적용하거나, 다음에 켤 때 자동으로 바뀌어요.', restart: true });
+        if (tray) tray.setContextMenu(trayMenu());
         if (updater._manual) askRestart();
+        else notifyUpdate(info.version);
       });
       updater.on('update-available', (info) => { if (updater._manual && win) win.webContents.send('app:update', 'v' + info.version + ' 새 버전을 받는 중이에요…'); });
       updater.on('update-not-available', () => { if (updater._manual) updateMsg('최신 버전이에요 (v' + app.getVersion() + ').'); });
@@ -562,7 +578,7 @@ if (!app.requestSingleInstanceLock()) {
       tray.setToolTip(APP_NAME);
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);
-      setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
+      setInterval(() => checkUpdate(false), 60 * 60 * 1000); // 1시간마다 새 버전 확인
       tray.on('click', () => { if (win.isVisible() && win.isFocused()) win.hide(); else { win.show(); win.focus(); } });
     } catch (e) { console.error(e); }
   });

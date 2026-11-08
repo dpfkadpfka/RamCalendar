@@ -1112,7 +1112,13 @@
     api.on('app:focus', () => { if (Date.now() - S.lastFocusLoad > 15000) { S.lastFocusLoad = Date.now(); load(); } });
     api.on('app:refresh', () => load({ cals: true }));
     api.on('app:goto', (d) => { if (typeof d !== 'string') return; if (d.slice(0, 7) !== S.ym) { S.ym = d.slice(0, 7); S.sel = d; S.events = []; render(); load(); } else select(d); });
-    api.on('app:update', (msg) => banner(msg));
+    api.on('app:update', (m) => {
+      const msg = typeof m === 'string' ? m : (m && m.msg);
+      banner(msg);
+      const b = $('banner');
+      if (m && m.restart) { b.classList.add('act'); b.title = '눌러서 바로 적용'; b.onclick = () => api.win('applyUpdate'); }
+      else { b.classList.remove('act'); b.onclick = null; b.title = ''; }
+    });
     api.on('app:settings', (m) => {
       if (!m) return;
       if (m.type === 'draft') { setDraft(m.patch || {}); if (m.patch && 'hiddenCalendars' in m.patch) load(); }

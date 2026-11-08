@@ -637,3 +637,5 @@ body.settings-mode #stClose{display:none}
 :root[data-pattern="diary"] .cell.today{background:rgba(255,255,255,.7);position:relative;overflow:visible}
 :root[data-pattern="diary"] .cell.today::after{content:'';position:absolute;right:-8px;top:6px;width:44px;height:14px;transform:rotate(35deg);background:repeating-linear-gradient(90deg,var(--p-t3) 0 5px,var(--p-t4) 5px 10px);pointer-events:none}
 :root[data-pattern="diary"] .chip{border-left:0;border-radius:2px;background:color-mix(in srgb,var(--cc) 25%,#fff)}
+.banner.act{cursor:pointer;background:var(--accent-soft);color:var(--fg);font-weight:600}
+.banner.act:hover{filter:brightness(.97)}
