@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dpfkadpfka/yeram-calendar/releases/latest"><b>최신 버전 내려받기</b></a>
+  <a href="https://github.com/dpfkadpfka/RamCalendar/releases/latest"><b>최신 버전 내려받기</b></a>
   &nbsp;·&nbsp; <a href="#설치">설치</a>
   &nbsp;·&nbsp; <a href="#처음-설정">처음 설정</a>
   &nbsp;·&nbsp; <a href="#자주-묻는-질문">자주 묻는 질문</a>
-  &nbsp;·&nbsp; <a href="https://github.com/dpfkadpfka/yeram-calendar/releases">바뀐 점</a>
+  &nbsp;·&nbsp; <a href="https://github.com/dpfkadpfka/RamCalendar/releases">바뀐 점</a>
 </p>
 
 <p align="center">윈도우 10 · 11 &nbsp;|&nbsp; 무료 &nbsp;|&nbsp; 자동 업데이트</p>
@@ -38,7 +38,7 @@
 
 <p align="center"><img src="docs/readme/install.webp" width="880" alt="설치 — 설치 파일 받기, PC 보호 창에서 추가 정보, 실행"></p>
 
-1. [최신 버전](https://github.com/dpfkadpfka/yeram-calendar/releases/latest) 아래 **Assets**에서 `RamCalendar-Setup-버전.exe`를 받아요.
+1. [최신 버전](https://github.com/dpfkadpfka/RamCalendar/releases/latest) 아래 **Assets**에서 `RamCalendar-Setup-버전.exe`를 받아요.
 2. 받은 파일을 두 번 눌러요. 파란 **"Windows의 PC 보호"** 창이 뜨면 **추가 정보**를 눌러요.
 3. **실행**을 누르면 묻는 것 없이 바로 설치되고 달력 창이 떠요.
 
@@ -137,7 +137,7 @@
 
 ## 바뀐 점
 
-버전마다 바뀐 점은 [Releases](https://github.com/dpfkadpfka/yeram-calendar/releases)에 정리돼 있어요.
+버전마다 바뀐 점은 [Releases](https://github.com/dpfkadpfka/RamCalendar/releases)에 정리돼 있어요.
 
 ---
 
