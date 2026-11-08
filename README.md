@@ -122,6 +122,12 @@
 </details>
 
 <details>
+<summary><b>내 일정이 다른 곳으로 보내지나요?</b></summary>
+<br>
+아니요. 일정은 내 컴퓨터의 RamCalendar와 구글 서버 사이에서만 오가고, 만든 사람이나 다른 서버로 보내지 않아요. AI 연결을 켠 경우에만 일정 도우미에 붙여넣은 글이 구글 AI로 가요.
+</details>
+
+<details>
 <summary><b>앱을 지우고 싶어요</b></summary>
 <br>
 윈도우 <b>설정 → 앱 → 설치된 앱</b>에서 RamCalendar를 <b>제거</b>해요. 구글 캘린더의 일정은 지워지지 않아요.
@@ -136,7 +142,7 @@
 ---
 
 <p align="center">
-  만든 사람 <b>김예람</b> (예람쌤) &nbsp;·&nbsp; <a href="https://dpfkadpfka.github.io">예람쌤 홈페이지</a> &nbsp;·&nbsp; <a href="https://dpfkadpfka.github.io/yeram-calendar/privacy.html">개인정보처리방침</a>
+  만든 사람 <b>김예람</b> (예람쌤) &nbsp;·&nbsp; <a href="https://dpfkadpfka.github.io">예람쌤 홈페이지</a>
 </p>
 
 <details>
