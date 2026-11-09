@@ -579,6 +579,14 @@ if (!app.requestSingleInstanceLock()) {
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);
       setInterval(() => checkUpdate(false), 60 * 60 * 1000); // 1시간마다 새 버전 확인
+      // 받아 둔 새 버전이 있는데 컴퓨터를 15분 넘게 안 쓰고 있으면 조용히 적용하고 다시 켠다(앱을 계속 켜 두는 컴퓨터도 최신 유지)
+      setInterval(() => {
+        try {
+          const { powerMonitor } = require('electron');
+          const busy = (settingsWin && !settingsWin.isDestroyed()) || alarmWins.length;
+          if (updateReady && updater && !busy && powerMonitor.getSystemIdleTime() >= 15 * 60) { quitting = true; updater.quitAndInstall(true, true); }
+        } catch (e) { console.error(e); }
+      }, 5 * 60 * 1000);
       tray.on('click', () => { if (win.isVisible() && win.isFocused()) win.hide(); else { win.show(); win.focus(); } });
     } catch (e) { console.error(e); }
   });
