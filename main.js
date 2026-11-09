@@ -382,7 +382,7 @@ ipcMain.handle('ev:delete', wrap(async (calId, id) => api('DELETE', `/calendars/
 ipcMain.handle('win:action', wrap(async (act, arg) => {
   if (!win) return;
   if (act === 'minimize') win.minimize();
-  if (act === 'applyUpdate' && updateReady && updater) { quitting = true; updater.quitAndInstall(false, true); return; }
+  if (act === 'applyUpdate' && updateReady && updater) { quitting = true; applyUpdate(); return; }
   if (act === 'material') { const on = !!arg && ACRYLIC; try { if (win.setBackgroundMaterial) win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch {} try { win.setBackgroundColor(on ? '#00000000' : '#f6f7f9'); } catch {} }
   if (act === 'opacity') win.setOpacity(Math.min(1, Math.max(0.3, Number(arg) || 1)));
   if (act === 'mini') {
@@ -480,7 +480,7 @@ function trayMenu() {
   return Menu.buildFromTemplate([
     { label: 'RamCalendar 열기', click: () => { win.show(); win.focus(); } },
     { label: '새로고침', click: () => win.webContents.send('app:refresh') },
-    updateReady ? { label: 'v' + updateReady + ' 새 버전 적용하고 다시 켜기', click: () => { quitting = true; updater.quitAndInstall(false, true); } }
+    updateReady ? { label: 'v' + updateReady + ' 새 버전 적용하고 다시 켜기', click: () => { quitting = true; applyUpdate(); } }
                 : { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
     { type: 'separator' },
     { label: '항상 위에 표시', type: 'checkbox', checked: !!cfg.alwaysOnTop, click: (m) => { cfg.alwaysOnTop = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
@@ -494,20 +494,30 @@ function trayMenu() {
 // ---------- 자동 업데이트 (깃허브 릴리스) ----------
 let updater = null;
 let updateReady = null; // 받아 둔 새 버전
-function askRestart() {
-  const { dialog } = require('electron');
-  dialog.showMessageBox(win && !win.isDestroyed() ? win : null, { type: 'info', title: APP_NAME, message: 'v' + updateReady + ' 업데이트를 받아 두었어요.', detail: '지금 다시 켜면 바로 적용돼요.', buttons: ['지금 다시 켜기', '나중에'], defaultId: 0, cancelId: 1 })
-    .then(r => { if (r.response === 0) { quitting = true; updater.quitAndInstall(false, true); } });
+function askRestart() { applyUpdate(); }
+// 새 버전 적용: 조용히 설치하고 앱을 다시 켠다(꺼진 채로 남지 않게)
+function applyUpdate() { if (!updater || !updateReady) return; quitting = true; try { updater.quitAndInstall(true, true); } catch (e) { console.error(e); } }
+// 새 버전을 다 받으면 자동으로 적용 — 설정 창·알림 창이 떠 있거나 방금까지 쓰던 중이면 잠깐 기다렸다가
+let autoApplyTimer = null;
+function scheduleAutoApply() {
+  if (autoApplyTimer) return;
+  autoApplyTimer = setInterval(() => {
+    try {
+      const { powerMonitor } = require('electron');
+      const busy = (settingsWin && !settingsWin.isDestroyed()) || alarmWins.length || (win && win.isFocused() && powerMonitor.getSystemIdleTime() < 60);
+      if (!busy) applyUpdate();
+    } catch (e) { console.error(e); applyUpdate(); }
+  }, 30 * 1000);
 }
-// 새 버전을 받아 두면 화면 오른쪽 아래 윈도우 알림으로 바로 알려 준다 — 누르면 다시 켜서 적용
+// 새 버전을 받아 두면 화면 오른쪽 아래 윈도우 알림으로 알려 준다
 let notifiedVer = null;
 function notifyUpdate(ver) {
   if (notifiedVer === ver) return; notifiedVer = ver;
   try {
     const { Notification } = require('electron');
     if (!Notification.isSupported()) return;
-    const n = new Notification({ title: APP_NAME + ' v' + ver + ' 새 버전', body: '알림을 누르면 바로 다시 켜서 적용해요. 그냥 두면 다음에 켤 때 자동으로 바뀌어요.', icon: iconPath(), silent: false });
-    n.on('click', () => { quitting = true; updater.quitAndInstall(false, true); });
+    const n = new Notification({ title: APP_NAME + ' v' + ver + ' 새 버전', body: '잠깐 뒤 자동으로 새 버전으로 바뀌고 다시 켜져요. 지금 바로 하려면 이 알림을 누르세요.', icon: iconPath(), silent: false });
+    n.on('click', () => { quitting = true; applyUpdate(); });
     n.show();
   } catch (e) { console.error(e); }
 }
@@ -523,10 +533,10 @@ function checkUpdate(manual) {
       updater.autoDownload = true; updater.autoInstallOnAppQuit = true;
       updater.on('update-downloaded', (info) => {
         updateReady = info.version;
-        if (win) win.webContents.send('app:update', { msg: 'v' + info.version + ' 새 버전을 받아 두었어요. 눌러서 바로 적용하거나, 다음에 켤 때 자동으로 바뀌어요.', restart: true });
+        if (win) win.webContents.send('app:update', { msg: 'v' + info.version + ' 새 버전을 받았어요. 잠깐 뒤 자동으로 바뀌고 다시 켜져요 (누르면 바로).', restart: true });
         if (tray) tray.setContextMenu(trayMenu());
-        if (updater._manual) askRestart();
-        else notifyUpdate(info.version);
+        notifyUpdate(info.version);
+        if (updater._manual) applyUpdate(); else scheduleAutoApply();
       });
       updater.on('update-available', (info) => { if (updater._manual && win) win.webContents.send('app:update', 'v' + info.version + ' 새 버전을 받는 중이에요…'); });
       updater.on('update-not-available', () => { if (updater._manual) updateMsg('최신 버전이에요 (v' + app.getVersion() + ').'); });
@@ -579,14 +589,6 @@ if (!app.requestSingleInstanceLock()) {
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);
       setInterval(() => checkUpdate(false), 60 * 60 * 1000); // 1시간마다 새 버전 확인
-      // 받아 둔 새 버전이 있는데 컴퓨터를 15분 넘게 안 쓰고 있으면 조용히 적용하고 다시 켠다(앱을 계속 켜 두는 컴퓨터도 최신 유지)
-      setInterval(() => {
-        try {
-          const { powerMonitor } = require('electron');
-          const busy = (settingsWin && !settingsWin.isDestroyed()) || alarmWins.length;
-          if (updateReady && updater && !busy && powerMonitor.getSystemIdleTime() >= 15 * 60) { quitting = true; updater.quitAndInstall(true, true); }
-        } catch (e) { console.error(e); }
-      }, 5 * 60 * 1000);
       tray.on('click', () => { if (win.isVisible() && win.isFocused()) win.hide(); else { win.show(); win.focus(); } });
     } catch (e) { console.error(e); }
   });
