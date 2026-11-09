@@ -280,7 +280,7 @@ function wrap(fn) {
 
 ipcMain.handle('cfg:get', wrap(async () => publicCfg()));
 ipcMain.handle('cfg:set', wrap(async (patch) => {
-  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim', 'appIcon', 'skinPattern', 'patternTone'];
+  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim', 'appIcon', 'skinPattern', 'patternTone', 'hideTaskbar'];
   for (const k of Object.keys(patch || {})) if (allowed.includes(k)) cfg[k] = patch[k];
   if ('clientId' in patch || 'clientSecret' in patch) { cfg.clientId = String(cfg.clientId || '').trim(); cfg.clientSecret = String(cfg.clientSecret || '').trim(); }
   if (SYNC_KEYS.some(k => k in (patch || {}))) { cfg.syncAt = Date.now(); schedulePush(); }
@@ -416,6 +416,7 @@ function applyWindowCfg() {
   try { if (process.platform === 'win32' && win.setBackgroundMaterial) win.setBackgroundMaterial(glass ? 'acrylic' : 'none'); } catch (e) { console.error(e); }
   try { win.setBackgroundColor(glass ? '#00000000' : '#f6f7f9'); } catch {}
   win.setAlwaysOnTop(!!cfg.alwaysOnTop);
+  try { win.setSkipTaskbar(!!cfg.hideTaskbar); } catch {}
   win.setMovable(!cfg.locked);
   win.setResizable(!cfg.locked);
   try { app.setLoginItemSettings({ openAtLogin: !!cfg.autoStart, path: process.execPath }); } catch {}
@@ -589,7 +590,7 @@ if (!app.requestSingleInstanceLock()) {
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);
       setInterval(() => checkUpdate(false), 60 * 60 * 1000); // 1시간마다 새 버전 확인
-      tray.on('click', () => { if (win.isVisible() && win.isFocused()) win.hide(); else { win.show(); win.focus(); } });
+      tray.on('click', () => { if (win.isVisible() && win.isFocused() && !win.isMinimized()) win.hide(); else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
     } catch (e) { console.error(e); }
   });
   app.on('before-quit', (e) => {

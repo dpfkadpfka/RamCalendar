@@ -954,7 +954,7 @@
     $('stAlarm').checked = c.alarm !== false; $('stAlarmMin').value = String(c.alarmMinutes == null ? 30 : c.alarmMinutes); $('stAlarmSound').checked = c.alarmSound !== false;
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
-    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart;
+    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar;
     renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
@@ -1100,6 +1100,7 @@
     };
     $('stLock').onchange = () => setDraft({ locked: $('stLock').checked });
     $('stAuto').onchange = () => setDraft({ autoStart: $('stAuto').checked });
+    $('stNoBar').onchange = () => setDraft({ hideTaskbar: $('stNoBar').checked });
     $('stQuit').onclick = () => api.win('quit');
 
     document.addEventListener('keydown', (e) => {
