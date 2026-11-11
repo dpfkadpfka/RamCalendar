@@ -463,7 +463,7 @@ function createWindow() {
   });
   if (!visible) b = { width: 980, height: 660, x: wa.x + wa.width - 1000, y: wa.y + 20 };
   win = new BrowserWindow({
-    ...b, minWidth: cfg.mini ? 240 : 560, minHeight: cfg.mini ? 200 : 420, frame: false, thickFrame: true, hasShadow: false, roundedCorners: false, show: false, skipTaskbar: false, // 창 틀·그림자·둥근 모서리 없이 — 바탕화면에 박힌 느낌
+    ...b, minWidth: cfg.mini ? 240 : 560, minHeight: cfg.mini ? 200 : 420, frame: false, thickFrame: true, hasShadow: false, roundedCorners: true, show: false, skipTaskbar: false, // 창 틀·그림자 없이, 바깥 모서리만 둥글게 — 바탕화면에 박힌 느낌
     backgroundColor: '#f6f7f9', title: APP_NAME, icon: iconPath(), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
