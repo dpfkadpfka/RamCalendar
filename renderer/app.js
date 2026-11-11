@@ -759,6 +759,7 @@
     if (c.fontFamily) s.setProperty('--font', '"' + c.fontFamily.replace(/"/g, '') + '","Malgun Gothic","Segoe UI",sans-serif'); else s.removeProperty('--font');
     document.body.style.zoom = String((c.fontSize || 13) / 13);
     root.dataset.style = c.style || 'glass';
+    if (c.showWinBtns) root.dataset.winbtns = '1'; else delete root.dataset.winbtns;
     ['--hl', '--sh', '--sh2', '--glass', '--glass2', '--gline', '--accent', '--accent-soft', '--sat', '--surface', '--bg', '--surface2', '--fg', '--muted', '--line'].forEach(k => s.removeProperty(k));
     document.body.style.background = '';
     const see = c.acrylic && glassOn(c) && c.scene === 'desktop';
@@ -954,7 +955,7 @@
     $('stAlarm').checked = c.alarm !== false; $('stAlarmMin').value = String(c.alarmMinutes == null ? 30 : c.alarmMinutes); $('stAlarmSound').checked = c.alarmSound !== false;
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
-    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar;
+    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns;
     renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
@@ -1101,6 +1102,7 @@
     $('stLock').onchange = () => setDraft({ locked: $('stLock').checked });
     $('stAuto').onchange = () => setDraft({ autoStart: $('stAuto').checked });
     $('stNoBar').onchange = () => setDraft({ hideTaskbar: $('stNoBar').checked });
+    $('stWinBtns').onchange = () => setDraft({ showWinBtns: $('stWinBtns').checked });
     $('stQuit').onclick = () => api.win('quit');
 
     document.addEventListener('keydown', (e) => {

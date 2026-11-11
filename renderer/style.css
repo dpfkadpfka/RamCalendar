@@ -639,3 +639,7 @@ body.settings-mode #stClose{display:none}
 :root[data-pattern="diary"] .chip{border-left:0;border-radius:2px;background:color-mix(in srgb,var(--cc) 25%,#fff)}
 .banner.act{cursor:pointer;background:var(--accent-soft);color:var(--fg);font-weight:600}
 .banner.act:hover{filter:brightness(.97)}
+
+/* 바탕화면에 박힌 느낌: 위쪽 줄을 달력 바탕과 이어지게, 창 단추(− ×)는 설정에서 켤 때만 */
+:root:not([data-pattern="cork"]) .titlebar{background:transparent!important;border-bottom:0!important;box-shadow:none!important;backdrop-filter:none!important}
+:root:not([data-winbtns="1"]) #minBtn,:root:not([data-winbtns="1"]) #closeBtn{display:none}
