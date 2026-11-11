@@ -1,7 +1,7 @@
 {
   "name": "yeram-calendar",
   "productName": "RamCalendar",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "구글 캘린더와 연동되는 바탕화면 달력",
   "main": "main.js",
   "author": "김예람",
@@ -12,7 +12,8 @@
     "dist": "electron-builder --win --x64"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2"
+    "electron-updater": "^6.6.2",
+    "koffi": "^2.16.3"
   },
   "devDependencies": {
     "electron": "44.6.0",
@@ -33,7 +34,8 @@
       "renderer/**",
       "assets/**",
       "creds.json",
-      "package.json"
+      "package.json",
+      "!node_modules/koffi/build/koffi/{darwin*,freebsd*,linux*,openbsd*,musl*,win32_arm64,win32_ia32}/**"
     ],
     "win": {
       "target": [

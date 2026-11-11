@@ -19,8 +19,9 @@ contextBridge.exposeInMainWorld('api', {
   muteGoogleDefaults: call('gcal:muteDefaults'),
   assistAI: call('assist:ai'),
   assistKey: call('assist:setKey'),
+  wall: call('desk:wall'),
   on: (ch, fn) => {
-    if (!['app:focus', 'app:refresh', 'app:cfg', 'app:update', 'app:settings', 'app:goto'].includes(ch)) return;
+    if (!['app:focus', 'app:refresh', 'app:cfg', 'app:update', 'app:settings', 'app:goto', 'app:bounds'].includes(ch)) return;
     ipcRenderer.on(ch, (_e, arg) => fn(arg));
   }
 });

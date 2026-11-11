@@ -279,8 +279,9 @@ function wrap(fn) {
 }
 
 ipcMain.handle('cfg:get', wrap(async () => publicCfg()));
+ipcMain.handle('desk:wall', wrap(async (since) => { const w = wallpaper(); return { mtime: w.mtime, url: w.mtime === since ? null : w.url, w: w.w, h: w.h, place: winPlace() }; }));
 ipcMain.handle('cfg:set', wrap(async (patch) => {
-  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim', 'appIcon', 'skinPattern', 'patternTone', 'hideTaskbar', 'showWinBtns'];
+  const allowed = ['clientId', 'clientSecret', 'hiddenCalendars', 'opacity', 'theme', 'alwaysOnTop', 'locked', 'autoStart', 'weekStart', 'panelOpen', 'panelMode', 'fontFamily', 'fontSize', 'accent', 'bgColor', 'style', 'hoverZoom', 'scene', 'glassSeeThrough', 'dayColors', 'dayBorders', 'dayEmojis', 'notes', 'footOpen', 'skin3d', 'skinFlat', 'alarm', 'alarmMinutes', 'alarmSound', 'bgImage', 'bgImageDark', 'bgImageDim', 'appIcon', 'skinPattern', 'patternTone', 'hideTaskbar', 'showWinBtns', 'stayBack'];
   for (const k of Object.keys(patch || {})) if (allowed.includes(k)) cfg[k] = patch[k];
   if ('clientId' in patch || 'clientSecret' in patch) { cfg.clientId = String(cfg.clientId || '').trim(); cfg.clientSecret = String(cfg.clientSecret || '').trim(); }
   if (SYNC_KEYS.some(k => k in (patch || {}))) { cfg.syncAt = Date.now(); schedulePush(); }
@@ -415,7 +416,8 @@ function applyWindowCfg() {
   const glass = (cfg.style || 'glass') === 'glass' && ACRYLIC && cfg.scene === 'desktop';
   try { if (process.platform === 'win32' && win.setBackgroundMaterial) win.setBackgroundMaterial(glass ? 'acrylic' : 'none'); } catch (e) { console.error(e); }
   try { win.setBackgroundColor(glass ? '#00000000' : '#f6f7f9'); } catch {}
-  win.setAlwaysOnTop(!!cfg.alwaysOnTop);
+  win.setAlwaysOnTop(!!cfg.alwaysOnTop && !cfg.stayBack);
+  if (cfg.stayBack) setImmediate(sendToBack);
   try { win.setSkipTaskbar(!!cfg.hideTaskbar); } catch {}
   win.setMovable(!cfg.locked);
   win.setResizable(!cfg.locked);
@@ -443,6 +445,35 @@ function openSettingsWindow() {
   settingsWin.on('closed', () => { if (!settingsDone && win) win.webContents.send('app:settings', { type: 'cancel' }); settingsWin = null; });
 }
 
+// ---------- 다른 창 뒤에 두기: 달력을 눌러도 다른 창 위로 올라오지 않게(윈도우 SetWindowPos로 맨 아래로) ----------
+let SetWindowPos = null;
+function sendToBack() {
+  if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+  try {
+    if (!SetWindowPos) { const koffi = require('koffi'); SetWindowPos = koffi.load('user32.dll').func('bool __stdcall SetWindowPos(intptr_t hWnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)'); }
+    const h = win.getNativeWindowHandle(); const hwnd = h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
+    SetWindowPos(hwnd, 1n, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_BOTTOM, NOSIZE|NOMOVE|NOACTIVATE
+  } catch (e) { console.error('sendToBack', e); }
+}
+// ---------- 바탕화면 그림 스킨: 윈도우 바탕화면 그림을 창 위치에 맞춰 깔아 창이 투명한 것처럼 보이게 ----------
+let wallCache = { mtime: -1, url: '', w: 0, h: 0 };
+function wallpaper() {
+  const f = path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Themes', 'TranscodedWallpaper');
+  try {
+    const st = fs.statSync(f);
+    if (st.mtimeMs !== wallCache.mtime) {
+      const buf = fs.readFileSync(f), sz = nativeImage.createFromBuffer(buf).getSize();
+      const mime = buf[0] === 0x89 ? 'image/png' : buf[0] === 0x42 ? 'image/bmp' : 'image/jpeg';
+      wallCache = { mtime: st.mtimeMs, url: 'data:' + mime + ';base64,' + buf.toString('base64'), w: sz.width, h: sz.height };
+    }
+  } catch { wallCache = { mtime: -1, url: '', w: 0, h: 0 }; }
+  return wallCache;
+}
+function winPlace() {
+  if (!win || win.isDestroyed()) return null;
+  const b = win.getBounds(), d = screen.getDisplayMatching(b).bounds;
+  return { win: b, disp: d };
+}
 // 앱 아이콘: 1번이 기본, 설정 → 창·동작에서 2~6번으로 바꿀 수 있다(창·작업 표시줄·트레이·알림 창)
 function iconNo() { const n = parseInt(cfg.appIcon, 10); return n >= 1 && n <= 6 ? n : 1; }
 function iconPath() { return path.join(__dirname, 'assets', 'icons', 'icon' + iconNo() + '.png'); }
@@ -472,7 +503,11 @@ function createWindow() {
   const saveBounds = () => { if (win && !win.isMinimized()) { if (cfg.mini) cfg.miniBounds = win.getBounds(); else cfg.bounds = win.getBounds(); saveCfg(); } };
   win.on('moved', saveBounds); win.on('resized', saveBounds);
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
-  win.on('focus', () => win.webContents.send('app:focus'));
+  win.on('focus', () => { win.webContents.send('app:focus'); if (cfg.stayBack) setImmediate(sendToBack); });
+  win.on('show', () => { if (cfg.stayBack) setImmediate(sendToBack); });
+  let boundsTimer = null;
+  const pushBounds = () => { if (boundsTimer) return; boundsTimer = setTimeout(() => { boundsTimer = null; if (win && !win.isDestroyed()) win.webContents.send('app:bounds', winPlace()); }, 16); };
+  win.on('move', pushBounds); win.on('resize', pushBounds);
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
 }

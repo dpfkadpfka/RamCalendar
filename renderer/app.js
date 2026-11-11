@@ -734,7 +734,11 @@
     return { name: '내 사진', dark: dk, photo: true, bg: 'linear-gradient(' + ov + ',' + ov + '),url("' + c.bgImage + '") center/cover no-repeat fixed',
       pal: dk ? DP('#14161d', '#1c1f29', '#9db3ff') : LP('#eef0f4', '#2f5bd3') };
   }
-  const sceneOf = (c) => (c.scene === 'photo' && c.bgImage ? photoScene(c) : null) || SCENES[c.scene] || SCENES[SCENE_ALIAS[c.scene]] || (c.scene === 'desktop' ? null : SCENES[DEFAULT_SCENE]);
+  // 바탕화면 그림: 윈도우 바탕화면 그림을 창 자리에 맞춰 깔아 투명한 것처럼 — 밝기에 따라 글자색 자동
+  const WALL = { dark: false };
+  const wallScene = () => ({ name: '바탕화면 그림', wall: true, dark: WALL.dark, bg: 'transparent',
+    pal: WALL.dark ? DP('#14161d', '#1c1f29', '#9db3ff') : LP('#eef0f4', '#2f5bd3') });
+  const sceneOf = (c) => (c.scene === 'wall' ? wallScene() : null) || (c.scene === 'photo' && c.bgImage ? photoScene(c) : null) || SCENES[c.scene] || SCENES[SCENE_ALIAS[c.scene]] || (c.scene === 'desktop' ? null : SCENES[DEFAULT_SCENE]);
   const glassOn = (c) => (c.style || 'glass') === 'glass';
   function sceneIsDark(c) { const sc = sceneOf(c); return glassOn(c) && !!(sc && sc.dark); }
   function themeApply() {
@@ -754,6 +758,32 @@
   const lum = (h) => { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   const mix = (a, b, t) => { const x = rgb(a), y = rgb(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
   const isHex = (v) => /^#[0-9a-f]{6}$/i.test(v || '');
+  const W = { mtime: -1, url: '', w: 0, h: 0, place: null, on: false, timer: null };
+  function wallPaint() {
+    const r = document.documentElement.style, P = W.place;
+    if (!W.on || !W.url || !P) { r.background = ''; return; }
+    const k = Math.max(P.disp.width / W.w, P.disp.height / W.h), sw = W.w * k, sh = W.h * k;
+    const x = (P.disp.width - sw) / 2 - (P.win.x - P.disp.x), y = (P.disp.height - sh) / 2 - (P.win.y - P.disp.y);
+    r.background = 'url("' + W.url + '") ' + x + 'px ' + y + 'px / ' + sw + 'px ' + sh + 'px no-repeat';
+  }
+  async function wallLoad() {
+    if (!api.wall) return;
+    try {
+      const res = await api.wall(W.mtime); const d = res && res.ok ? res.data : null; if (!d) return;
+      W.place = d.place;
+      if (d.url) {
+        W.url = d.url; W.w = d.w; W.h = d.h; W.mtime = d.mtime;
+        // 바탕화면 그림의 평균 밝기로 글자색(밝은/어두운) 정하기
+        const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = 24; cv.height = 24; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, 24, 24);
+          const px = g.getImageData(0, 0, 24, 24).data; let L = 0; for (let i = 0; i < px.length; i += 4) L += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+          const dk = L / (px.length / 4) < 120; if (dk !== WALL.dark) { WALL.dark = dk; themeApply(); } }; im.src = d.url;
+      }
+      wallPaint();
+    } catch (e) { console.error(e); }
+  }
+  function wallOn() { if (W.on) return; W.on = true; wallLoad(); W.timer = setInterval(wallLoad, 60000); }
+  function wallOff() { if (!W.on) return; W.on = false; clearInterval(W.timer); wallPaint(); }
+  if (api.on) api.on('app:bounds', (p) => { W.place = p; if (W.on) wallPaint(); });
   function lookApply() {
     const root = document.documentElement, s = root.style, c = V();
     if (c.fontFamily) s.setProperty('--font', '"' + c.fontFamily.replace(/"/g, '') + '","Malgun Gothic","Segoe UI",sans-serif'); else s.removeProperty('--font');
@@ -773,6 +803,7 @@
       set('--glass', P.surface + (sc.dark ? '80' : '57')); set('--glass2', P.surface2 + (sc.dark ? 'bf' : '9e'));
       set('--gline', sc.dark ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.7)');
       document.body.style.background = sc.bg;
+      if (sc.wall) wallOn(); 
       if (sc.gline) set('--gline', sc.gline);
       if (sc.font && !c.fontFamily) set('--font', sc.font);
     }
@@ -793,6 +824,7 @@
       ['paper', 'a', 'b', 'c', 'm', 'wood', 't1', 't2', 't3', 't4', 'cell'].forEach(k => { if (T[k]) set('--p-' + k, T[k]); else s.removeProperty('--p-' + k); });
       document.body.style.background = T.paper;
     } else delete root.dataset.pattern;
+    if (!(sc && sc.wall)) wallOff();
     // 2) 직접 고른 포인트 색·카드 색이 있으면 우선
     if (isHex(c.accent)) { s.setProperty('--accent', c.accent); s.setProperty('--sat', c.accent); s.setProperty('--accent-soft', 'color-mix(in srgb,' + c.accent + ' 16%, var(--surface))'); }
     if (isHex(c.bgColor)) {
@@ -879,10 +911,11 @@
       label('색감');
       pt.p.tones.forEach((t, i) => addBtn(String(pt.ti), String(i), t.name, 'linear-gradient(180deg,' + (t.a || t.paper) + ' 0 72%,' + t.accent + ' 72%)', false, t.accent, () => setDraft({ patternTone: i })));
     } else if (style === 'glass') {
-      const cur = c.scene === 'desktop' ? 'desktop' : (c.scene === 'photo' && c.bgImage ? 'photo' : SCENES[c.scene] ? c.scene : (SCENE_ALIAS[c.scene] || DEFAULT_SCENE));
+      const cur = c.scene === 'desktop' ? 'desktop' : c.scene === 'wall' ? 'wall' : (c.scene === 'photo' && c.bgImage ? 'photo' : SCENES[c.scene] ? c.scene : (SCENE_ALIAS[c.scene] || DEFAULT_SCENE));
       const pick = (k) => setDraft({ scene: k });
       label('라이트');
       if (c.acrylic) addBtn(cur, 'desktop', '바탕화면 비침', '', false, '', pick);
+      addBtn(cur, 'wall', '바탕화면 그림', 'repeating-linear-gradient(45deg,#dfe6f3 0 6px,#f3f6fb 6px 12px)', false, '', pick);
       Object.entries(SCENES).filter(([, v]) => !v.dark).forEach(([k, v]) => addBtn(cur, k, v.name, v.bg, false, v.pal.accent, pick));
       label('다크');
       Object.entries(SCENES).filter(([, v]) => v.dark).forEach(([k, v]) => addBtn(cur, k, v.name, v.bg, true, v.pal.accent, pick));
@@ -955,7 +988,7 @@
     $('stAlarm').checked = c.alarm !== false; $('stAlarmMin').value = String(c.alarmMinutes == null ? 30 : c.alarmMinutes); $('stAlarmSound').checked = c.alarmSound !== false;
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
-    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns;
+    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns; $('stBack').checked = !!c.stayBack; $('stTop').disabled = !!c.stayBack;
     renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
@@ -1103,6 +1136,7 @@
     $('stAuto').onchange = () => setDraft({ autoStart: $('stAuto').checked });
     $('stNoBar').onchange = () => setDraft({ hideTaskbar: $('stNoBar').checked });
     $('stWinBtns').onchange = () => setDraft({ showWinBtns: $('stWinBtns').checked });
+    $('stBack').onchange = () => { const on = $('stBack').checked; setDraft(on ? { stayBack: true, alwaysOnTop: false } : { stayBack: false }); $('stTop').checked = false; $('stTop').disabled = on; };
     $('stQuit').onclick = () => api.win('quit');
 
     document.addEventListener('keydown', (e) => {
