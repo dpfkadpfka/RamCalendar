@@ -126,9 +126,34 @@
     return '';
   }
 
+  // 메신저·카톡·메일에서 복사할 때 딸려 오는 머리글(보낸 사람·보낸 시각·날짜 구분선)을 지운다.
+  // 보낸 시각을 일정으로 잘못 잡지 않게 하려는 것.
+  const META = /^(보낸\s*사람|받는\s*사람|보낸\s*날짜|받은\s*날짜|보낸\s*시간|받은\s*시간|발신(자|인|일시|시간)?|수신(자|인|일시|시간)?|참조|숨은\s*참조|전송\s*일시|전달\s*일시|작성\s*일(시)?|등록\s*일(시)?|게시\s*일(시)?|from|to|cc|sent|date)\s*[:：]/i;
+  const STAMP = /(20\d{2}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}\s*일?\.?\s*(\(\s*[월화수목금토일]\s*\)|[월화수목금토일]요일)?\s*)?(오전|오후|AM|PM)?\s*\d{1,2}:\d{2}(:\d{2})?\s*(오전|오후|AM|PM)?\s*$/i;
+  function cleanLines(text) {
+    return String(text || '').replace(/\r/g, '').split('\n').map(l => {
+      let s = l.trim();
+      // 카톡: [이름] [오후 3:20] 내용 / 2026. 11. 13. 오후 3:20, 이름 : 내용
+      s = s.replace(/^\[[^\]]{1,30}\]\s*\[(오전|오후)\s*\d{1,2}:\d{2}\]\s*/, '');
+      s = s.replace(/^20\d{2}\.\s*\d{1,2}\.\s*\d{1,2}\.?\s*(오전|오후)\s*\d{1,2}:\d{2},\s*[^:]{1,30}\s*:\s*/, '');
+      return s;
+    }).filter(s => {
+      if (!s) return false;
+      if (META.test(s)) return false;
+      if (/^[-=─━\s]*20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*[월화수목금토일]요일[-=─━\s]*$/.test(s)) return false; // 카톡 날짜 구분선
+      const m = s.match(STAMP);
+      if (m && /\d{1,2}:\d{2}/.test(m[0])) {
+        const head = s.slice(0, m.index).trim();
+        // 시각만 있는 줄, 또는 "이름 2026-11-13 09:50"처럼 짧은 머리글 + 보낸 시각
+        if (!head || (head.length <= 25 && !/(까지|부터|마감|제출|회의|연수|협의|행사|일시|시간|시작|모임|예정|[다요]\.?$)/.test(head) && (/:\d{2}:\d{2}/.test(m[0]) || /20\d{2}/.test(m[0])))) return false;
+      }
+      return true;
+    });
+  }
+
   function parse(text, now) {
     now = now || new Date();
-    const lines = String(text || '').replace(/\r/g, '').split('\n').map(s => s.trim()).filter(Boolean);
+    const lines = cleanLines(text);
     const subject = lines.length > 1 ? subjectOf(lines) : '';
     const segs = [];
     lines.forEach(l => l.split(/(?<=[다요]\.)\s+|(?<=\.)\s+(?=[가-힣])(?<![\d]\.\s+)/).forEach(s => s.trim() && segs.push(s.trim())));
@@ -172,14 +197,16 @@
       if (!title) title = kind === '일정' ? (subject || '일정') : kind;
       title = title.slice(0, 40).trim();
       const loc = (seg.match(/(장소|위치)\s*[:：]\s*(.+)$/) || [])[2] || ploc || (kind !== '제출' ? locLine : '') || '';
-      items.push({ kind, title, date, endDate, time, endTime, location: loc.trim(), src: seg, past: date < today, checked: date >= today });
+      const hm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+      const past = date < today || (date === today && !endDate && time && (endTime || time) < hm);
+      items.push({ kind, title, date, endDate, time, endTime, location: loc.trim(), src: seg, past, checked: !past });
     });
     // 같은 날 같은 제목은 하나로
     const seen = new Set();
     return { subject, items: items.filter(it => { const k = it.date + '|' + it.title; if (seen.has(k)) return false; seen.add(k); return true; }) };
   }
 
-  const api = { parse, findDates, findTimes };
+  const api = { parse, findDates, findTimes, cleanLines, subjectOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RamAssist = api;
 })(typeof window !== 'undefined' ? window : globalThis);

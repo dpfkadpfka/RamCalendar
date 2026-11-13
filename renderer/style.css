@@ -652,3 +652,5 @@ body.settings-mode #stClose{display:none}
 .g-ne{top:0;right:0;cursor:nesw-resize}.g-sw{bottom:0;left:0;cursor:nesw-resize}
 .g-nw{top:0;left:0;cursor:nwse-resize}.g-se{bottom:0;right:0;cursor:nwse-resize}
 body.locked .grip{display:none}
+
+.as-msg{flex-shrink:0}

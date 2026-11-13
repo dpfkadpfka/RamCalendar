@@ -363,7 +363,7 @@ ipcMain.handle('assist:ai', wrap(async (text, today) => {
   if (!key) { const e = new Error('NO_KEY'); e.code = 'NO_KEY'; throw e; }
   const prompt = `오늘은 ${today}이다(한국 시간). 아래 글은 학교 메신저·공문·메일이다. 글을 읽는 사람이 해야 하거나 참석해야 하는 일 중 날짜가 있는 것만 골라 JSON 배열로만 답하라.
 각 항목: {"kind":"제출|회의|연수|출장|촬영|발표|일정|할일 중 하나","title":"날짜·시간을 뺀 짧은 제목(25자 이내, 무엇을 하는지)","date":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","time":"HH:MM(24시간) 또는 null","endTime":"HH:MM 또는 null","location":"장소 또는 빈 문자열"}
-규칙: 마감·제출·회신·신청 기한은 kind "제출", date는 마감일, time은 마감 시각. 연도가 없으면 오늘 기준으로 가장 가까운 앞날로. 단순 인사·이미 끝난 일·날짜 없는 것은 빼라. 없으면 [].
+규칙: 마감·제출·회신·신청 기한은 kind "제출", date는 마감일, time은 마감 시각. 연도가 없으면 오늘 기준으로 가장 가까운 앞날로. 메신저·카톡·메일의 보낸 사람, 보낸 시각, 작성일, 날짜 구분선 같은 머리글 시각은 일정이 아니니 무시하라. 단순 인사·이미 끝난 일·날짜 없는 것은 빼라. 없으면 [].
 글:
 """${String(text).slice(0, 6000)}"""`;
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {

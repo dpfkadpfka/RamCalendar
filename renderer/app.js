@@ -1292,13 +1292,20 @@
     AS.busy = true; const wait = asBot('<span class="as-dots"><i></i><i></i><i></i></span> 날짜를 찾는 중이에요');
     let items = null, how = '날짜 규칙';
     if (S.cfg.hasAiKey) {
-      const r = await api.assistAI(text, todayStr() + '(' + wdOf(todayStr()) + ')');
-      if (r.ok) { items = normAI(r.data); how = 'AI'; }
+      const r = await api.assistAI(window.RamAssist.cleanLines(text).join('\n') || text, todayStr() + '(' + wdOf(todayStr()) + ')');
+      if (r.ok) { items = normAI(r.data); how = 'AI'; if (!items.length) items = null; }
       else if (r.code === 'BAD_KEY') asBot('AI 키가 맞지 않아요. 위쪽 <b>AI 켜짐</b>을 눌러 키를 다시 넣어 주세요. 이번에는 날짜 규칙으로 찾을게요.');
     }
-    if (!items) items = window.RamAssist.parse(text, new Date()).items;
+    if (!items) { items = window.RamAssist.parse(text, new Date()).items; if (items.length) how = '날짜 규칙'; }
     wait.remove(); AS.busy = false;
-    if (!items.length) return asBot('날짜를 찾지 못했어요. <b>11/14(금) 16시까지</b>처럼 날짜가 들어간 글을 붙여넣어 주세요.' + (S.cfg.hasAiKey ? '' : '<br><span class="as-ex">문장이 복잡하면 위쪽 <b>AI 연결</b>을 눌러 Gemini AI를 연결해 보세요.</span>'));
+    if (!items.length) {
+      // 날짜가 없는 글: 막히지 않게 오늘 날짜로 카드를 만들어 두고 날짜만 골라 등록하게 한다
+      const lines = window.RamAssist.cleanLines(text);
+      const title = (window.RamAssist.subjectOf(lines) || (lines[0] || '할 일')).slice(0, 40);
+      asBot('이 글에는 날짜가 없어요. <b>오늘 날짜</b>로 카드를 만들어 뒀으니 날짜만 바꿔서 등록하세요.');
+      await asMarkDup([{ kind: '할일', title, date: todayStr(), endDate: null, time: null, endTime: null, location: '', src: '', past: false, checked: true }].map(x => (items.push(x), x)));
+      return asCards(items, how);
+    }
     await asMarkDup(items);
     asCards(items, how);
   }
