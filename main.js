@@ -105,7 +105,7 @@ function login() {
     function finish(e) {
       if (done) return; done = true; clearTimeout(timer);
       setTimeout(() => server.close(), 500);
-      if (win) { win.show(); win.focus(); }
+      if (win) bringFront();
       e ? reject(e) : resolve(true);
     }
     server.listen(0, '127.0.0.1', () => {
@@ -256,7 +256,7 @@ ipcMain.handle('alarm:act', wrap(async (key, act, minutes) => {
   const w = alarmWins.find(x => x._alarm && x._alarm.key === key);
   const info = w && w._alarm;
   if (act === 'snooze' && info) alarmSnoozed.push({ e: info.e, key: info.key, at: Date.now() + (Number(minutes) || 5) * 60000 });
-  if (act === 'open' && win && info) { win.show(); win.focus(); const t = new Date(info.e.start); win.webContents.send('app:goto', t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0')); }
+  if (act === 'open' && win && info) { bringFront(); const t = new Date(info.e.start); win.webContents.send('app:goto', t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0')); }
   if (w && !w.isDestroyed()) w.close();
 }));
 function startAlarms() {
@@ -496,6 +496,15 @@ function openSettingsWindow() {
 let SetWindowPos = null;
 // 처음 설치하면 켜진 상태(바탕화면 달력이니까). 설정에서 끄면 false로 저장된다
 const stayBack = () => cfg.stayBack !== false;
+// 트레이·알림·바로가기로 열 때는 잠깐 맨 앞에 보여 주고, 다른 곳을 누르면(창이 포커스를 잃으면) 다시 뒤로 간다
+let peekFront = false;
+function bringFront() {
+  if (!win || win.isDestroyed()) return;
+  peekFront = true;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.setAlwaysOnTop(true); win.moveTop(); win.focus();
+  setTimeout(() => { if (win && !win.isDestroyed() && !(cfg.alwaysOnTop && !stayBack())) win.setAlwaysOnTop(false); }, 300);
+}
 // 윈도우가 이 창의 앞뒤 순서를 바꾸려 할 때(눌렀을 때·다른 창 전환 때) 그 자리에서 '맨 아래'로 바꿔 끼운다
 function hookStayBack() {
   if (process.platform !== 'win32' || !win) return;
@@ -505,7 +514,7 @@ function hookStayBack() {
     const wr = k32.func('void __stdcall RtlMoveMemory(intptr_t dst, uint8_t *src, size_t n)');
     const one = Buffer.alloc(8); one.writeBigInt64LE(1n);
     win.hookWindowMessage(0x0046, (wParam, lParam) => { // WM_WINDOWPOSCHANGING
-      if (!stayBack()) return;
+      if (!stayBack() || peekFront) return;
       try {
         const p = lParam.length >= 8 ? lParam.readBigInt64LE(0) : BigInt(lParam.readUInt32LE(0)); if (!p) return;
         const wp = Buffer.alloc(36); rd(wp, p, 36);
@@ -572,8 +581,10 @@ function createWindow() {
   const saveBounds = () => { if (win && !win.isMinimized()) { if (cfg.mini) cfg.miniBounds = win.getBounds(); else cfg.bounds = win.getBounds(); saveCfg(); } };
   win.on('moved', saveBounds); win.on('resized', saveBounds);
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
-  win.on('focus', () => { win.webContents.send('app:focus'); if (stayBack()) setImmediate(sendToBack); });
-  win.on('show', () => { if (stayBack()) setImmediate(sendToBack); });
+  win.on('focus', () => { win.webContents.send('app:focus'); if (stayBack() && !peekFront) setImmediate(sendToBack); });
+  win.on('blur', () => { if (peekFront) { peekFront = false; if (stayBack()) setImmediate(sendToBack); } });
+  win.on('hide', () => { peekFront = false; });
+  win.on('show', () => { if (stayBack() && !peekFront) setImmediate(sendToBack); });
   let boundsTimer = null;
   const pushBounds = () => { if (boundsTimer) return; boundsTimer = setTimeout(() => { boundsTimer = null; if (win && !win.isDestroyed()) win.webContents.send('app:bounds', winPlace()); }, 16); };
   win.on('move', pushBounds); win.on('resize', pushBounds);
@@ -583,7 +594,7 @@ function createWindow() {
 
 function trayMenu() {
   return Menu.buildFromTemplate([
-    { label: 'RamCalendar 열기', click: () => { win.show(); win.focus(); } },
+    { label: 'RamCalendar 열기', click: () => bringFront() },
     { label: '새로고침', click: () => win.webContents.send('app:refresh') },
     updateReady ? { label: 'v' + updateReady + ' 새 버전 적용하고 다시 켜기', click: () => { quitting = true; applyUpdate(); } }
                 : { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
@@ -669,7 +680,7 @@ function handleArgs(argv) {
   if (argv.includes('--check-update')) checkUpdate(true);
   else if (argv.includes('--open-settings')) openSettingsWindow();
   else if (argv.includes('--quit')) { quitting = true; app.quit(); }
-  else if (win) { win.show(); win.focus(); }
+  else if (win) bringFront();
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -694,7 +705,7 @@ if (!app.requestSingleInstanceLock()) {
       tray.setContextMenu(trayMenu());
       setTimeout(() => checkUpdate(false), 8000);
       setInterval(() => checkUpdate(false), 60 * 60 * 1000); // 1시간마다 새 버전 확인
-      tray.on('click', () => { if (win.isVisible() && win.isFocused() && !win.isMinimized()) win.hide(); else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
+      tray.on('click', () => { if (peekFront && win.isVisible() && !win.isMinimized()) win.hide(); else bringFront(); });
     } catch (e) { console.error(e); }
   });
   app.on('before-quit', (e) => {
