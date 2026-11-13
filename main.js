@@ -493,7 +493,6 @@ function openSettingsWindow() {
 }
 
 // ---------- 다른 창 뒤에 두기: 달력을 눌러도 다른 창 위로 올라오지 않게(윈도우 SetWindowPos로 맨 아래로) ----------
-let SetWindowPos = null;
 // 처음 설치하면 켜진 상태(바탕화면 달력이니까). 설정에서 끄면 false로 저장된다
 const stayBack = () => cfg.stayBack !== false;
 // 트레이·알림·바로가기로 열 때는 잠깐 맨 앞에 보여 주고, 다른 곳을 누르면(창이 포커스를 잃으면) 다시 뒤로 간다
@@ -505,31 +504,64 @@ function bringFront() {
   win.show(); win.setAlwaysOnTop(true); win.moveTop(); win.focus();
   setTimeout(() => { if (win && !win.isDestroyed() && !(cfg.alwaysOnTop && !stayBack())) win.setAlwaysOnTop(false); }, 300);
 }
-// 윈도우가 이 창의 앞뒤 순서를 바꾸려 할 때(눌렀을 때·다른 창 전환 때) 그 자리에서 '맨 아래'로 바꿔 끼운다
+// '맨 아래'(HWND_BOTTOM)로 보내면 바탕화면 아이콘 창보다도 밑으로 내려가 아예 안 보인다.
+// 그래서 바탕화면 아이콘 창(SHELLDLL_DefView를 품은 Progman/WorkerW) 바로 위 자리에 끼운다.
+let U32 = null;
+function u32() {
+  if (U32) return U32;
+  const lib = require('koffi').load('user32.dll');
+  U32 = {
+    find: lib.func('intptr_t __stdcall FindWindowExW(intptr_t parent, intptr_t after, str16 cls, str16 title)'),
+    getWin: lib.func('intptr_t __stdcall GetWindow(intptr_t hWnd, uint32_t cmd)'),
+    setPos: lib.func('bool __stdcall SetWindowPos(intptr_t hWnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)')
+  };
+  return U32;
+}
+const myHwnd = () => { const h = win.getNativeWindowHandle(); return h.length >= 8 ? h.readBigInt64LE(0) : BigInt(h.readUInt32LE(0)); };
+function deskWindow() {
+  const u = u32(); const big = (v) => BigInt(v || 0);
+  const pm = big(u.find(0, 0, 'Progman', null));
+  if (pm && big(u.find(pm, 0, 'SHELLDLL_DefView', null))) return pm;
+  let w = 0n;
+  for (let i = 0; i < 50; i++) {
+    w = big(u.find(0, w, 'WorkerW', null)); if (!w) break;
+    if (big(u.find(w, 0, 'SHELLDLL_DefView', null))) return w;
+  }
+  return pm || 0n;
+}
+// 끼울 자리: 바탕화면 창 바로 위에 있는 창의 '아래'. 이미 그 자리면 null
+function backSlot() {
+  const desk = deskWindow(); if (!desk) return null;
+  const prev = BigInt(u32().getWin(desk, 3) || 0); // GW_HWNDPREV
+  if (!prev || prev === myHwnd()) return null;
+  return prev;
+}
+// 윈도우가 이 창의 앞뒤 순서를 바꾸려 할 때(눌렀을 때·다른 창 전환 때) 그 자리에서 바탕화면 바로 위로 바꿔 끼운다
 function hookStayBack() {
   if (process.platform !== 'win32' || !win) return;
   try {
     const k32 = require('koffi').load('kernel32.dll');
     const rd = k32.func('void __stdcall RtlMoveMemory(_Out_ uint8_t *dst, intptr_t src, size_t n)');
     const wr = k32.func('void __stdcall RtlMoveMemory(intptr_t dst, uint8_t *src, size_t n)');
-    const one = Buffer.alloc(8); one.writeBigInt64LE(1n);
     win.hookWindowMessage(0x0046, (wParam, lParam) => { // WM_WINDOWPOSCHANGING
       if (!stayBack() || peekFront) return;
       try {
         const p = lParam.length >= 8 ? lParam.readBigInt64LE(0) : BigInt(lParam.readUInt32LE(0)); if (!p) return;
         const wp = Buffer.alloc(36); rd(wp, p, 36);
-        if (wp.readUInt32LE(32) & 0x0004) return; // SWP_NOZORDER: 순서 안 바꾸는 이동·크기 변경
-        wr(p + 8n, one, 8);                       // hwndInsertAfter = HWND_BOTTOM
+        const flags = wp.readUInt32LE(32);
+        if (flags & 0x0004) return; // SWP_NOZORDER: 순서 안 바꾸는 이동·크기 변경
+        const slot = backSlot();
+        if (slot === null) { const f = Buffer.alloc(4); f.writeUInt32LE(flags | 0x0004); wr(p + 32n, f, 4); return; } // 이미 제자리: 순서는 그대로
+        const b = Buffer.alloc(8); b.writeBigInt64LE(slot); wr(p + 8n, b, 8);
       } catch (e) { console.error('stayBack hook', e); }
     });
   } catch (e) { console.error('hookStayBack', e); }
 }
 function sendToBack() {
-  if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
+  if (process.platform !== 'win32' || !win || win.isDestroyed() || peekFront) return;
   try {
-    if (!SetWindowPos) { const koffi = require('koffi'); SetWindowPos = koffi.load('user32.dll').func('bool __stdcall SetWindowPos(intptr_t hWnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)'); }
-    const h = win.getNativeWindowHandle(); const hwnd = h.length >= 8 ? h.readBigUInt64LE(0) : BigInt(h.readUInt32LE(0));
-    SetWindowPos(hwnd, 1n, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // HWND_BOTTOM, NOSIZE|NOMOVE|NOACTIVATE
+    const slot = backSlot(); if (slot === null) return;
+    u32().setPos(myHwnd(), slot, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // NOSIZE|NOMOVE|NOACTIVATE
   } catch (e) { console.error('sendToBack', e); }
 }
 // ---------- 바탕화면 그림 스킨: 윈도우 바탕화면 그림을 창 위치에 맞춰 깔아 창이 투명한 것처럼 보이게 ----------
