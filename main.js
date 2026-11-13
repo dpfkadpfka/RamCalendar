@@ -460,7 +460,7 @@ ipcMain.handle('win:action', wrap(async (act, arg) => {
 function applyWindowCfg() {
   if (!win) return;
   win.setOpacity(Math.min(1, Math.max(0.3, Number(cfg.opacity) || 1)));
-  const glass = (cfg.style || 'glass') === 'glass' && ACRYLIC && cfg.scene === 'desktop';
+  const glass = false; // 예전 아크릴 '바탕화면 비침'은 없앰(바탕화면 그림을 깔아 비치게 함)
   try { if (process.platform === 'win32' && win.setBackgroundMaterial) win.setBackgroundMaterial(glass ? 'acrylic' : 'none'); } catch (e) { console.error(e); }
   try { win.setBackgroundColor(glass ? '#00000000' : '#f6f7f9'); } catch {}
   win.setAlwaysOnTop(false);

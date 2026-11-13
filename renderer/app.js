@@ -736,9 +736,11 @@
   }
   // 바탕화면 그림: 윈도우 바탕화면 그림을 창 자리에 맞춰 깔아 투명한 것처럼 — 밝기에 따라 글자색 자동
   const WALL = { dark: false };
-  const wallScene = () => ({ name: '바탕화면 그림', wall: true, dark: WALL.dark, bg: 'transparent',
+  const wallScene = () => ({ name: '바탕화면 비침', wall: true, dark: WALL.dark, bg: 'transparent',
     pal: WALL.dark ? DP('#14161d', '#1c1f29', '#9db3ff') : LP('#eef0f4', '#2f5bd3') });
-  const sceneOf = (c) => (c.scene === 'wall' ? wallScene() : null) || (c.scene === 'photo' && c.bgImage ? photoScene(c) : null) || SCENES[c.scene] || SCENES[SCENE_ALIAS[c.scene]] || (c.scene === 'desktop' ? null : SCENES[DEFAULT_SCENE]);
+  // 처음 설치(스킨 안 고름)와 예전 '바탕화면 비침(desktop)'은 모두 지금의 바탕화면 비침(wall)으로
+  const isWall = (c) => !c.scene || c.scene === 'wall' || c.scene === 'desktop';
+  const sceneOf = (c) => (isWall(c) ? wallScene() : null) || (c.scene === 'photo' && c.bgImage ? photoScene(c) : null) || SCENES[c.scene] || SCENES[SCENE_ALIAS[c.scene]] || (c.scene === 'desktop' ? null : SCENES[DEFAULT_SCENE]);
   const glassOn = (c) => (c.style || 'glass') === 'glass';
   function sceneIsDark(c) { const sc = sceneOf(c); return glassOn(c) && !!(sc && sc.dark); }
   function themeApply() {
@@ -792,7 +794,7 @@
     if (c.showWinBtns) root.dataset.winbtns = '1'; else delete root.dataset.winbtns;
     ['--hl', '--sh', '--sh2', '--glass', '--glass2', '--gline', '--accent', '--accent-soft', '--sat', '--surface', '--bg', '--surface2', '--fg', '--muted', '--line'].forEach(k => s.removeProperty(k));
     document.body.style.background = '';
-    const see = c.acrylic && glassOn(c) && c.scene === 'desktop';
+    const see = false;
     if (see) root.dataset.acrylic = '1'; else delete root.dataset.acrylic;
     const sc = glassOn(c) ? sceneOf(c) : null;
     // 1) 테마 팔레트
@@ -911,11 +913,10 @@
       label('색감');
       pt.p.tones.forEach((t, i) => addBtn(String(pt.ti), String(i), t.name, 'linear-gradient(180deg,' + (t.a || t.paper) + ' 0 72%,' + t.accent + ' 72%)', false, t.accent, () => setDraft({ patternTone: i })));
     } else if (style === 'glass') {
-      const cur = c.scene === 'desktop' ? 'desktop' : c.scene === 'wall' ? 'wall' : (c.scene === 'photo' && c.bgImage ? 'photo' : SCENES[c.scene] ? c.scene : (SCENE_ALIAS[c.scene] || DEFAULT_SCENE));
+      const cur = isWall(c) ? 'wall' : (c.scene === 'photo' && c.bgImage ? 'photo' : SCENES[c.scene] ? c.scene : (SCENE_ALIAS[c.scene] || DEFAULT_SCENE));
       const pick = (k) => setDraft({ scene: k });
       label('라이트');
-      if (c.acrylic) addBtn(cur, 'desktop', '바탕화면 비침', '', false, '', pick);
-      addBtn(cur, 'wall', '바탕화면 그림', 'repeating-linear-gradient(45deg,#dfe6f3 0 6px,#f3f6fb 6px 12px)', false, '', pick);
+      addBtn(cur, 'wall', '바탕화면 비침', 'repeating-linear-gradient(45deg,#dfe6f3 0 6px,#f3f6fb 6px 12px)', false, '', pick);
       Object.entries(SCENES).filter(([, v]) => !v.dark).forEach(([k, v]) => addBtn(cur, k, v.name, v.bg, false, v.pal.accent, pick));
       label('다크');
       Object.entries(SCENES).filter(([, v]) => v.dark).forEach(([k, v]) => addBtn(cur, k, v.name, v.bg, true, v.pal.accent, pick));
