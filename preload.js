@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   alarmAct: call('alarm:act'),
   muteGoogleDefaults: call('gcal:muteDefaults'),
   assistAI: call('assist:ai'),
+  assistFile: call('assist:file'),
   assistKey: call('assist:setKey'),
   wall: call('desk:wall'),
   on: (ch, fn) => {

@@ -358,23 +358,61 @@ ipcMain.handle('assist:setKey', wrap(async (key) => {
   [win, settingsWin].forEach(w => { if (w && !w.isDestroyed()) w.webContents.send('app:cfg'); });
   return { hasAiKey: !!key };
 }));
-ipcMain.handle('assist:ai', wrap(async (text, today) => {
+const AI_RULE = (today, what) => `오늘은 ${today}이다(한국 시간). ${what}는 학교 메신저·공문·메일·안내문이다. 글을 읽는 사람이 해야 하거나 참석해야 하는 일 중 날짜가 있는 것만 골라 JSON 배열로만 답하라.
+각 항목: {"kind":"제출|회의|연수|출장|촬영|발표|일정|할일 중 하나","title":"날짜·시간을 뺀 짧은 제목(25자 이내, 무엇을 하는지)","date":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","time":"HH:MM(24시간) 또는 null","endTime":"HH:MM 또는 null","location":"장소 또는 빈 문자열"}
+규칙: 마감·제출·회신·신청·접수 기한은 kind "제출", date는 마감일, time은 마감 시각. 공모전·대회는 작품 제출(접수) 마감을 "제출"로, 시상식·행사일이 있으면 따로 넣어라. 기간(~)이 있는 행사는 date와 endDate로. 연도가 없으면 오늘 기준으로 가장 가까운 앞날로. 메신저·카톡·메일의 보낸 사람, 보낸 시각, 작성일, 공문 시행일·접수일, 날짜 구분선 같은 머리글 시각은 일정이 아니니 무시하라. 단순 인사·이미 끝난 일·날짜 없는 것은 빼라. 없으면 [].`;
+async function gemini(parts) {
   const key = dec(cfg.aiKey || '');
   if (!key) { const e = new Error('NO_KEY'); e.code = 'NO_KEY'; throw e; }
-  const prompt = `오늘은 ${today}이다(한국 시간). 아래 글은 학교 메신저·공문·메일이다. 글을 읽는 사람이 해야 하거나 참석해야 하는 일 중 날짜가 있는 것만 골라 JSON 배열로만 답하라.
-각 항목: {"kind":"제출|회의|연수|출장|촬영|발표|일정|할일 중 하나","title":"날짜·시간을 뺀 짧은 제목(25자 이내, 무엇을 하는지)","date":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","time":"HH:MM(24시간) 또는 null","endTime":"HH:MM 또는 null","location":"장소 또는 빈 문자열"}
-규칙: 마감·제출·회신·신청 기한은 kind "제출", date는 마감일, time은 마감 시각. 연도가 없으면 오늘 기준으로 가장 가까운 앞날로. 메신저·카톡·메일의 보낸 사람, 보낸 시각, 작성일, 날짜 구분선 같은 머리글 시각은 일정이 아니니 무시하라. 단순 인사·이미 끝난 일·날짜 없는 것은 빼라. 없으면 [].
-글:
-"""${String(text).slice(0, 6000)}"""`;
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } })
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } })
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error((j.error && j.error.message) || ('AI 응답 오류 ' + r.status)); e.code = r.status === 400 || r.status === 403 ? 'BAD_KEY' : 'AI_ERR'; throw e; }
   const out = (((j.candidates || [])[0] || {}).content || {}).parts || [];
   const arr = JSON.parse((out[0] && out[0].text) || '[]');
   return Array.isArray(arr) ? arr : (arr.items || []);
+}
+ipcMain.handle('assist:ai', wrap(async (text, today) => gemini([{ text: AI_RULE(today, '아래 글') + `\n글:\n"""${String(text).slice(0, 15000)}"""` }])));
+
+// 일정 도우미 파일: 글을 꺼내 돌려주고, 글이 없는 사진·스캔 PDF는 AI가 직접 읽는다
+const xmlText = (xml, para, run) => xml.split(para).map(p => (p.match(run) || []).map(t => t.replace(/<[^>]+>/g, '')).join('')).join('\n')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+ipcMain.handle('assist:file', wrap(async (name, bytes, today) => {
+  const buf = Buffer.from(bytes); const ext = (String(name).match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase() || '';
+  const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp', heic: 'image/heic' };
+  const byAI = async (mime) => {
+    if (!cfg.aiKey) return { err: 'NEED_AI' };
+    if (buf.length > 18 * 1024 * 1024) return { err: 'TOO_BIG' };
+    return { items: await gemini([{ text: AI_RULE(today, '첨부한 파일') }, { inline_data: { mime_type: mime, data: buf.toString('base64') } }]) };
+  };
+  if (ext === 'hwp') return { err: 'HWP' };
+  if (MIME[ext]) return byAI(MIME[ext]);
+  if (ext === 'pdf') {
+    let text = '';
+    try { text = (await require('pdf-parse/lib/pdf-parse.js')(buf)).text || ''; } catch {}
+    if (text.replace(/\s/g, '').length < 30) return byAI('application/pdf');
+    return { text };
+  }
+  if (ext === 'hwpx' || ext === 'docx') {
+    const zip = await require('jszip').loadAsync(buf);
+    const files = Object.keys(zip.files).filter(f => ext === 'hwpx' ? /^Contents\/section\d+\.xml$/i.test(f) : f === 'word/document.xml')
+      .sort((a, b) => (+(a.match(/\d+/) || [0])[0]) - (+(b.match(/\d+/) || [0])[0]));
+    let text = '';
+    for (const f of files) {
+      const x = await zip.file(f).async('string');
+      text += (ext === 'hwpx' ? xmlText(x, /<\/hp:p>/, /<hp:t(?:\s[^>]*)?>[\s\S]*?<\/hp:t>/g) : xmlText(x, /<\/w:p>/, /<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/g)) + '\n';
+    }
+    return { text };
+  }
+  if (['txt', 'md', 'csv', 'eml', 'html', 'htm'].includes(ext) || !ext) {
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('�')) { try { text = new TextDecoder('euc-kr').decode(buf); } catch {} }
+    if (/^html?$/.test(ext)) text = text.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
+    return { text };
+  }
+  return { err: 'TYPE' };
 }));
 ipcMain.handle('ev:create', wrap(async (calId, body) => api('POST', `/calendars/${enc1(calId)}/events`, null, body)));
 ipcMain.handle('ev:patch', wrap(async (calId, id, body) => api('PATCH', `/calendars/${enc1(calId)}/events/${enc1(id)}`, null, body)));

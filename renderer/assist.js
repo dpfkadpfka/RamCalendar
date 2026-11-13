@@ -120,7 +120,9 @@
     for (const l of lines) {
       let s = l.replace(/^(re|fw|fwd)\s*[:：]\s*/i, '').replace(/^\s*(\[[^\]]{1,12}\]\s*)+/, '').trim();
       s = s.replace(/\s*(안내|알림|공지|협조\s*요청|요청|협조)(\s*(드립니다|합니다))?\s*$/, '').trim();
-      s = tidy(s) || s;
+      s = s.replace(/(20\d{2}\s*[.\-/년]\s*)?\d{1,2}\s*[.\-/월]\s*\d{1,2}\s*일?\.?(\s*\(\s*[월화수목금토일]\s*\))?/g, ' ').replace(/(오전|오후)?\s*\d{1,2}\s*(:\s*\d{2}|시(\s*\d{1,2}\s*분)?)/g, ' ');
+      s = tidy(s) || s.trim();
+      if (s.replace(/[^가-힣A-Za-z]/g, '').length < 4) continue;
       if (s && !/^(안녕하세요|선생님|수고|감사)/.test(s) && /[가-힣A-Za-z]/.test(s)) return s.slice(0, 40);
     }
     return '';

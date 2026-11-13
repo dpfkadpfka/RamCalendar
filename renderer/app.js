@@ -1266,7 +1266,7 @@
     $('asMode').textContent = S.cfg.hasAiKey ? 'AI 켜짐' : 'AI 연결';
     $('asMode').classList.toggle('on', !!S.cfg.hasAiKey);
     $('asKey').hidden = !AS.keyOpen; $('asKeyDel').hidden = !S.cfg.hasAiKey;
-    if (AS.open && !$('asLog').children.length) asBot('메신저·공문·메일 글을 <b>그대로 붙여넣어</b> 주세요. 날짜와 마감을 찾아 일정으로 만들어 드릴게요.<br><span class="as-ex">예) 학년말 평가계획을 11/14(금) 16시까지 제출해 주세요.</span>');
+    if (AS.open && !$('asLog').children.length) asBot('메신저·공문·메일 글을 <b>그대로 붙여넣거나</b> 공문 파일(PDF · 한글 hwpx · 워드)과 캡처 사진을 <b>끌어다 놓아</b> 주세요. 날짜와 마감을 찾아 일정으로 만들어 드릴게요.<br><span class="as-ex">예) 학년말 평가계획을 11/14(금) 16시까지 제출해 주세요.</span>');
     if (AS.open) setTimeout(() => $('asText').focus(), 0);
   }
   function asScroll() { const l = $('asLog'); l.scrollTop = l.scrollHeight; }
@@ -1288,6 +1288,37 @@
   async function asSend() {
     const text = $('asText').value.trim(); if (!text || AS.busy) return;
     $('asText').value = ''; asMe(text);
+    return asRun(text);
+  }
+  const FILE_ERR = {
+    HWP: '예전 한글 파일(.hwp)은 바로 못 읽어요. 한글에서 <b>다른 이름으로 저장 → hwpx 또는 PDF</b>로 저장해서 넣어 주세요.',
+    NEED_AI: '사진과 글자가 없는 스캔 PDF는 <b>AI 연결</b>이 있어야 읽을 수 있어요. 위쪽 <b>AI 연결</b>을 눌러 주세요.',
+    TOO_BIG: '파일이 너무 커요(18MB까지). 필요한 쪽만 저장해서 넣어 주세요.',
+    TYPE: 'PDF · 한글(hwpx) · 워드(docx) · 텍스트 · 사진 파일만 읽을 수 있어요.'
+  };
+  async function asFiles(files) {
+    files = [...files].filter(Boolean); if (!files.length || AS.busy) return;
+    if (!S.cfg.loggedIn) return asBot('먼저 <b>설정 → 계정</b>에서 구글 로그인을 해 주세요.');
+    for (const f of files) {
+      const name = f.name || ('캡처.' + ((f.type || 'image/png').split('/')[1] || 'png'));
+      asMe('첨부 파일: ' + name);
+      AS.busy = true; const wait = asBot('<span class="as-dots"><i></i><i></i><i></i></span> 파일을 읽는 중이에요');
+      const r = await api.assistFile(name, new Uint8Array(await f.arrayBuffer()), todayStr() + '(' + wdOf(todayStr()) + ')');
+      wait.remove(); AS.busy = false;
+      if (!r.ok) { asBot(r.code === 'BAD_KEY' ? 'AI 키가 맞지 않아요. 위쪽 <b>AI 켜짐</b>을 눌러 키를 다시 넣어 주세요.' : '파일을 읽지 못했어요. 다른 형식으로 저장해서 넣어 주세요.'); continue; }
+      const d = r.data || {};
+      if (d.err) { asBot(FILE_ERR[d.err] || FILE_ERR.TYPE); continue; }
+      if (d.items) {
+        const items = normAI(d.items);
+        if (!items.length) { asBot('이 파일에서 날짜가 있는 일을 찾지 못했어요.'); continue; }
+        await asMarkDup(items); asCards(items, 'AI'); continue;
+      }
+      const text = String(d.text || '').trim();
+      if (!text) { asBot('파일에 글자가 없어요.'); continue; }
+      await asRun(text, true);
+    }
+  }
+  async function asRun(text, fromFile) {
     if (!S.cfg.loggedIn) return asBot('먼저 <b>설정 → 계정</b>에서 구글 로그인을 해 주세요.');
     AS.busy = true; const wait = asBot('<span class="as-dots"><i></i><i></i><i></i></span> 날짜를 찾는 중이에요');
     let items = null, how = '날짜 규칙';
@@ -1296,7 +1327,14 @@
       if (r.ok) { items = normAI(r.data); how = 'AI'; if (!items.length) items = null; }
       else if (r.code === 'BAD_KEY') asBot('AI 키가 맞지 않아요. 위쪽 <b>AI 켜짐</b>을 눌러 키를 다시 넣어 주세요. 이번에는 날짜 규칙으로 찾을게요.');
     }
-    if (!items) { items = window.RamAssist.parse(text, new Date()).items; if (items.length) how = '날짜 규칙'; }
+    const ruled = window.RamAssist.parse(text, new Date()).items;
+    if (!items) { items = ruled; if (items.length) how = '날짜 규칙'; }
+    else {
+      // AI가 놓친 날짜는 날짜 규칙으로 찾은 것에서 채운다
+      const has = new Set(items.map(x => x.date + '|' + (x.time || '')));
+      const days = new Set(items.map(x => x.date));
+      ruled.forEach(x => { if (!has.has(x.date + '|' + (x.time || '')) && !days.has(x.date)) { items.push(Object.assign({}, x, { checked: false })); how = 'AI + 날짜 규칙'; } });
+    }
     wait.remove(); AS.busy = false;
     if (!items.length) {
       // 날짜가 없는 글: 막히지 않게 오늘 날짜로 카드를 만들어 두고 날짜만 골라 등록하게 한다
@@ -1462,6 +1500,17 @@
     $('asKeyDel').onclick = async () => { const r = await api.assistKey(''); if (r.ok) { S.cfg.hasAiKey = false; AS.keyOpen = false; asApply(); asBot('AI 연결을 끊었어요. 날짜 규칙으로 찾을게요.'); } };
     $('asForm').addEventListener('submit', (e) => { e.preventDefault(); asSend(); });
     $('asText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); asSend(); } });
+    $('asClip').addEventListener('click', () => $('asFile').click());
+    $('asFile').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; asFiles(fs); });
+    $('asText').addEventListener('paste', (e) => {
+      const fs = [...(e.clipboardData && e.clipboardData.files || [])];
+      if (fs.length) { e.preventDefault(); asFiles(fs); }
+    });
+    const asPanel = $('assist'); let dragN = 0;
+    asPanel.addEventListener('dragenter', (e) => { if (![...e.dataTransfer.types].includes('Files')) return; e.preventDefault(); dragN++; asPanel.classList.add('dragging'); });
+    asPanel.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+    asPanel.addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; asPanel.classList.remove('dragging'); } });
+    asPanel.addEventListener('drop', (e) => { e.preventDefault(); dragN = 0; asPanel.classList.remove('dragging'); asFiles(e.dataTransfer.files); });
   }
 
 
