@@ -463,8 +463,8 @@ function applyWindowCfg() {
   const glass = (cfg.style || 'glass') === 'glass' && ACRYLIC && cfg.scene === 'desktop';
   try { if (process.platform === 'win32' && win.setBackgroundMaterial) win.setBackgroundMaterial(glass ? 'acrylic' : 'none'); } catch (e) { console.error(e); }
   try { win.setBackgroundColor(glass ? '#00000000' : '#f6f7f9'); } catch {}
-  win.setAlwaysOnTop(!!cfg.alwaysOnTop && !cfg.stayBack);
-  if (cfg.stayBack) setImmediate(sendToBack);
+  win.setAlwaysOnTop(!!cfg.alwaysOnTop && !stayBack());
+  if (stayBack()) setImmediate(sendToBack);
   try { win.setSkipTaskbar(!!cfg.hideTaskbar); } catch {}
   win.setMovable(!cfg.locked);
   win.setResizable(!cfg.locked);
@@ -494,6 +494,27 @@ function openSettingsWindow() {
 
 // ---------- 다른 창 뒤에 두기: 달력을 눌러도 다른 창 위로 올라오지 않게(윈도우 SetWindowPos로 맨 아래로) ----------
 let SetWindowPos = null;
+// 처음 설치하면 켜진 상태(바탕화면 달력이니까). 설정에서 끄면 false로 저장된다
+const stayBack = () => cfg.stayBack !== false;
+// 윈도우가 이 창의 앞뒤 순서를 바꾸려 할 때(눌렀을 때·다른 창 전환 때) 그 자리에서 '맨 아래'로 바꿔 끼운다
+function hookStayBack() {
+  if (process.platform !== 'win32' || !win) return;
+  try {
+    const k32 = require('koffi').load('kernel32.dll');
+    const rd = k32.func('void __stdcall RtlMoveMemory(_Out_ uint8_t *dst, intptr_t src, size_t n)');
+    const wr = k32.func('void __stdcall RtlMoveMemory(intptr_t dst, uint8_t *src, size_t n)');
+    const one = Buffer.alloc(8); one.writeBigInt64LE(1n);
+    win.hookWindowMessage(0x0046, (wParam, lParam) => { // WM_WINDOWPOSCHANGING
+      if (!stayBack()) return;
+      try {
+        const p = lParam.length >= 8 ? lParam.readBigInt64LE(0) : BigInt(lParam.readUInt32LE(0)); if (!p) return;
+        const wp = Buffer.alloc(36); rd(wp, p, 36);
+        if (wp.readUInt32LE(32) & 0x0004) return; // SWP_NOZORDER: 순서 안 바꾸는 이동·크기 변경
+        wr(p + 8n, one, 8);                       // hwndInsertAfter = HWND_BOTTOM
+      } catch (e) { console.error('stayBack hook', e); }
+    });
+  } catch (e) { console.error('hookStayBack', e); }
+}
 function sendToBack() {
   if (process.platform !== 'win32' || !win || win.isDestroyed()) return;
   try {
@@ -546,12 +567,13 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  hookStayBack();
   win.once('ready-to-show', () => { applyWindowCfg(); win.show(); });
   const saveBounds = () => { if (win && !win.isMinimized()) { if (cfg.mini) cfg.miniBounds = win.getBounds(); else cfg.bounds = win.getBounds(); saveCfg(); } };
   win.on('moved', saveBounds); win.on('resized', saveBounds);
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
-  win.on('focus', () => { win.webContents.send('app:focus'); if (cfg.stayBack) setImmediate(sendToBack); });
-  win.on('show', () => { if (cfg.stayBack) setImmediate(sendToBack); });
+  win.on('focus', () => { win.webContents.send('app:focus'); if (stayBack()) setImmediate(sendToBack); });
+  win.on('show', () => { if (stayBack()) setImmediate(sendToBack); });
   let boundsTimer = null;
   const pushBounds = () => { if (boundsTimer) return; boundsTimer = setTimeout(() => { boundsTimer = null; if (win && !win.isDestroyed()) win.webContents.send('app:bounds', winPlace()); }, 16); };
   win.on('move', pushBounds); win.on('resize', pushBounds);

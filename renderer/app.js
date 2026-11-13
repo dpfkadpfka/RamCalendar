@@ -1010,7 +1010,7 @@
     $('stAlarm').checked = c.alarm !== false; $('stAlarmMin').value = String(c.alarmMinutes == null ? 30 : c.alarmMinutes); $('stAlarmSound').checked = c.alarmSound !== false;
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
-    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns; $('stBack').checked = !!c.stayBack; $('stTop').disabled = !!c.stayBack;
+    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns; $('stBack').checked = c.stayBack !== false; $('stTop').disabled = c.stayBack !== false;
     renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
