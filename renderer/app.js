@@ -968,7 +968,29 @@
     pick.addEventListener('input', () => { onPick(pick.value); mark(pick.value); }); box.appendChild(pick);
     function mark(v) { Array.from(box.querySelectorAll('button')).forEach(x => x.setAttribute('aria-pressed', String((x.dataset.c || '') === (v || '').toLowerCase() || (!v && x.classList.contains('def'))))); }
   }
-  function lockApply() { $('lockBtn').classList.toggle('on', !!S.cfg.locked); $('titlebar').classList.toggle('drag', !S.cfg.locked); }
+  // 가장자리 손잡이로 창 크기 조절(창 틀이 없어서 직접 처리)
+  function gripsInit() {
+    if (document.querySelector('.grip')) return;
+    ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].forEach(d => {
+      const g = el('div', 'grip g-' + d); document.body.appendChild(g);
+      g.addEventListener('pointerdown', (ev) => {
+        if (S.cfg.locked || ev.button !== 0) return;
+        ev.preventDefault(); g.setPointerCapture(ev.pointerId);
+        const st = { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight, px: ev.screenX, py: ev.screenY };
+        let raf = 0, last = null;
+        const mv = (e) => {
+          const dx = e.screenX - st.px, dy = e.screenY - st.py; let { x, y, w, h } = st;
+          if (d.includes('e')) w = st.w + dx; if (d.includes('s')) h = st.h + dy;
+          if (d.includes('w')) { w = st.w - dx; x = st.x + dx; } if (d.includes('n')) { h = st.h - dy; y = st.y + dy; }
+          last = { x, y, width: w, height: h };
+          if (!raf) raf = requestAnimationFrame(() => { raf = 0; api.win('resize', last); });
+        };
+        const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); if (last) api.win('resize', last); api.win('resizeEnd'); };
+        g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+      });
+    });
+  }
+  function lockApply() { if (!SET_MODE) gripsInit(); document.body.classList.toggle('locked', !!S.cfg.locked); $('lockBtn').classList.toggle('on', !!S.cfg.locked); $('titlebar').classList.toggle('drag', !S.cfg.locked); }
   function showStPage(pg) {
     Array.from(document.querySelectorAll('#stNav button')).forEach(b => b.setAttribute('aria-selected', String(b.dataset.page === pg)));
     Array.from(document.querySelectorAll('.st-page')).forEach(x => { x.hidden = x.dataset.page !== pg; });

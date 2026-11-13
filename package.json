@@ -1,7 +1,7 @@
 {
   "name": "yeram-calendar",
   "productName": "RamCalendar",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "구글 캘린더와 연동되는 바탕화면 달력",
   "main": "main.js",
   "author": "김예람",

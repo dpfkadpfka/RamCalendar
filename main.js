@@ -383,6 +383,15 @@ ipcMain.handle('ev:delete', wrap(async (calId, id) => api('DELETE', `/calendars/
 ipcMain.handle('win:action', wrap(async (act, arg) => {
   if (!win) return;
   if (act === 'minimize') win.minimize();
+  // 창 틀이 없으니 가장자리 크기 조절은 앱이 직접(가장자리 손잡이 → 여기로 새 크기)
+  if (act === 'resize' && arg && !cfg.locked) {
+    const [mw, mh] = cfg.mini ? [240, 200] : [560, 420];
+    const b = { x: Math.round(arg.x), y: Math.round(arg.y), width: Math.max(mw, Math.round(arg.width)), height: Math.max(mh, Math.round(arg.height)) };
+    if (b.width === mw && arg.x !== win.getBounds().x) b.x = win.getBounds().x + win.getBounds().width - mw;
+    if (b.height === mh && arg.y !== win.getBounds().y) b.y = win.getBounds().y + win.getBounds().height - mh;
+    win.setBounds(b);
+  }
+  if (act === 'resizeEnd' && !win.isMinimized()) { if (cfg.mini) cfg.miniBounds = win.getBounds(); else cfg.bounds = win.getBounds(); saveCfg(); }
   if (act === 'applyUpdate' && updateReady && updater) { quitting = true; applyUpdate(); return; }
   if (act === 'material') { const on = !!arg && ACRYLIC; try { if (win.setBackgroundMaterial) win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch {} try { win.setBackgroundColor(on ? '#00000000' : '#f6f7f9'); } catch {} }
   if (act === 'opacity') win.setOpacity(Math.min(1, Math.max(0.3, Number(arg) || 1)));
@@ -494,7 +503,7 @@ function createWindow() {
   });
   if (!visible) b = { width: 980, height: 660, x: wa.x + wa.width - 1000, y: wa.y + 20 };
   win = new BrowserWindow({
-    ...b, minWidth: cfg.mini ? 240 : 560, minHeight: cfg.mini ? 200 : 420, frame: false, thickFrame: true, hasShadow: false, roundedCorners: true, show: false, skipTaskbar: false, // 창 틀·그림자 없이, 바깥 모서리만 둥글게 — 바탕화면에 박힌 느낌
+    ...b, minWidth: cfg.mini ? 240 : 560, minHeight: cfg.mini ? 200 : 420, frame: false, thickFrame: false, hasShadow: false, roundedCorners: true, show: false, skipTaskbar: false, // 창 틀·그림자 없이, 바깥 모서리만 둥글게 — 바탕화면에 박힌 느낌
     backgroundColor: '#f6f7f9', title: APP_NAME, icon: iconPath(), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });

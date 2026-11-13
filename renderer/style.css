@@ -643,3 +643,12 @@ body.settings-mode #stClose{display:none}
 /* 바탕화면에 박힌 느낌: 위쪽 줄을 달력 바탕과 이어지게, 창 단추(− ×)는 설정에서 켤 때만 */
 :root:not([data-pattern="cork"]) .titlebar{background:transparent!important;border-bottom:0!important;box-shadow:none!important;backdrop-filter:none!important}
 :root:not([data-winbtns="1"]) #minBtn,:root:not([data-winbtns="1"]) #closeBtn{display:none}
+
+/* 창 크기 조절 손잡이(보이지 않는 가장자리) */
+.grip{position:fixed;z-index:9999;-webkit-app-region:no-drag}
+.g-n,.g-s{left:10px;right:10px;height:5px;cursor:ns-resize}.g-n{top:0}.g-s{bottom:0}
+.g-e,.g-w{top:10px;bottom:10px;width:5px;cursor:ew-resize}.g-e{right:0}.g-w{left:0}
+.g-ne,.g-nw,.g-se,.g-sw{width:12px;height:12px}
+.g-ne{top:0;right:0;cursor:nesw-resize}.g-sw{bottom:0;left:0;cursor:nesw-resize}
+.g-nw{top:0;left:0;cursor:nwse-resize}.g-se{bottom:0;right:0;cursor:nwse-resize}
+body.locked .grip{display:none}
