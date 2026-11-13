@@ -1010,7 +1010,7 @@
     $('stAlarm').checked = c.alarm !== false; $('stAlarmMin').value = String(c.alarmMinutes == null ? 30 : c.alarmMinutes); $('stAlarmSound').checked = c.alarmSound !== false;
     $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked;
     [...$('edAlarm').options][0].textContent = '기본값 (' + $('stAlarmMin').selectedOptions[0].textContent + ')';
-    $('stTop').checked = !!c.alwaysOnTop; $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns; $('stBack').checked = c.stayBack !== false; $('stTop').disabled = c.stayBack !== false;
+    $('stLock').checked = !!c.locked; $('stAuto').checked = !!c.autoStart; $('stNoBar').checked = !!c.hideTaskbar; $('stWinBtns').checked = !!c.showWinBtns;
     renderIcons();
     renderLook();
     const box = $('stCals'); box.textContent = '';
@@ -1142,7 +1142,6 @@
     $('footClose').onclick = () => { S.cfg.footOpen = S.cfg.footOpen === false; api.setCfg({ footOpen: S.cfg.footOpen }); applyFoot(); };
     $('panelHandle').onclick = () => { S.cfg.panelOpen = !S.cfg.panelOpen; api.setCfg({ panelOpen: S.cfg.panelOpen }); applyPanel(); };
     $('stFontSize').addEventListener('input', () => { $('stFsVal').textContent = $('stFontSize').value; setDraft({ fontSize: +$('stFontSize').value }); });
-    $('stTop').onchange = () => setDraft({ alwaysOnTop: $('stTop').checked });
     $('stPeek').onchange = () => setDraft({ hoverZoom: $('stPeek').checked });
     $('stAlarm').onchange = () => { setDraft({ alarm: $('stAlarm').checked }); $('stAlarmMin').disabled = $('stAlarmSound').disabled = !$('stAlarm').checked; };
     $('stAlarmMin').onchange = () => setDraft({ alarmMinutes: +$('stAlarmMin').value });
@@ -1158,7 +1157,6 @@
     $('stAuto').onchange = () => setDraft({ autoStart: $('stAuto').checked });
     $('stNoBar').onchange = () => setDraft({ hideTaskbar: $('stNoBar').checked });
     $('stWinBtns').onchange = () => setDraft({ showWinBtns: $('stWinBtns').checked });
-    $('stBack').onchange = () => { const on = $('stBack').checked; setDraft(on ? { stayBack: true, alwaysOnTop: false } : { stayBack: false }); $('stTop').checked = false; $('stTop').disabled = on; };
     $('stQuit').onclick = () => api.win('quit');
 
     document.addEventListener('keydown', (e) => {

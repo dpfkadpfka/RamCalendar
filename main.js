@@ -463,7 +463,7 @@ function applyWindowCfg() {
   const glass = (cfg.style || 'glass') === 'glass' && ACRYLIC && cfg.scene === 'desktop';
   try { if (process.platform === 'win32' && win.setBackgroundMaterial) win.setBackgroundMaterial(glass ? 'acrylic' : 'none'); } catch (e) { console.error(e); }
   try { win.setBackgroundColor(glass ? '#00000000' : '#f6f7f9'); } catch {}
-  win.setAlwaysOnTop(!!cfg.alwaysOnTop && !stayBack());
+  win.setAlwaysOnTop(false);
   if (stayBack()) setImmediate(sendToBack);
   try { win.setSkipTaskbar(!!cfg.hideTaskbar); } catch {}
   win.setMovable(!cfg.locked);
@@ -482,7 +482,7 @@ function openSettingsWindow() {
   settingsDone = false;
   settingsWin = new BrowserWindow({
     width: w, height: h, x, y: Math.max(wa.y, b.y), minWidth: 420, minHeight: 360, title: 'RamCalendar 설정', icon: iconPath(),
-    autoHideMenuBar: true, alwaysOnTop: !!cfg.alwaysOnTop, backgroundColor: '#f6f7f9', show: false,
+    autoHideMenuBar: true, alwaysOnTop: false, backgroundColor: '#f6f7f9', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   settingsWin.setMenuBarVisibility(false);
@@ -494,7 +494,7 @@ function openSettingsWindow() {
 
 // ---------- 다른 창 뒤에 두기: 달력을 눌러도 다른 창 위로 올라오지 않게(윈도우 SetWindowPos로 맨 아래로) ----------
 // 처음 설치하면 켜진 상태(바탕화면 달력이니까). 설정에서 끄면 false로 저장된다
-const stayBack = () => cfg.stayBack !== false;
+const stayBack = () => true; // 모든 스킨이 바탕화면에 붙어 있는 달력
 // 트레이·알림·바로가기로 열 때는 잠깐 맨 앞에 보여 주고, 다른 곳을 누르면(창이 포커스를 잃으면) 다시 뒤로 간다
 let peekFront = false;
 function bringFront() {
@@ -631,7 +631,6 @@ function trayMenu() {
     updateReady ? { label: 'v' + updateReady + ' 새 버전 적용하고 다시 켜기', click: () => { quitting = true; applyUpdate(); } }
                 : { label: '업데이트 확인 (현재 v' + app.getVersion() + ')', click: () => checkUpdate(true) },
     { type: 'separator' },
-    { label: '항상 위에 표시', type: 'checkbox', checked: !!cfg.alwaysOnTop, click: (m) => { cfg.alwaysOnTop = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
     { label: '위치·크기 고정', type: 'checkbox', checked: !!cfg.locked, click: (m) => { cfg.locked = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
     { label: '윈도우 시작 시 실행', type: 'checkbox', checked: !!cfg.autoStart, click: (m) => { cfg.autoStart = m.checked; saveCfg(); applyWindowCfg(); win.webContents.send('app:cfg'); } },
     { type: 'separator' },
