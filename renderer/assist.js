@@ -139,7 +139,8 @@
       return s;
     }).filter(s => {
       if (!s) return false;
-      if (META.test(s)) return false;
+      if (META.test(s) || META.test(s.replace(/^([가-힣])\s(?=[가-힣](\s[가-힣])*\s*[:：])/, '$1').replace(/(?<=^[가-힣\s]{1,8})\s+(?=[가-힣:：])/g, ''))) return false;
+      if (/^(메시지|쪽지|메일)\s*[-=─━]{3,}\s*$/.test(s)) return false;
       if (/^[-=─━\s]*20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*[월화수목금토일]요일[-=─━\s]*$/.test(s)) return false; // 카톡 날짜 구분선
       const m = s.match(STAMP);
       if (m && /\d{1,2}:\d{2}/.test(m[0])) {
